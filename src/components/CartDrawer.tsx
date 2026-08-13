@@ -38,7 +38,7 @@ export const CartDrawer: React.FC = () => {
     text += `---------------------------------\n`
     text += `Tổng cộng: ${getTotalPrice().toLocaleString('vi-VN')}đ\n`
     text += `Mã đơn nháp: #${orderId}\n`
-    text += `(Nhờ shop liên hệ tư vấn giao hàng giúp mình nha!)`
+    text += `(Nhờ shop liên hệ tư vấn giúp mình nha!)`
 
     setOrderText(text)
   }, [items, messageTemplate, getTotalPrice])
