@@ -44,10 +44,31 @@ export const Home: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-stone-50 flex flex-col">
+    <div className="min-h-screen w-full relative overflow-hidden bg-[#fffafb] flex flex-col">
+      <div
+        className="pointer-events-none absolute inset-0 z-0"
+        style={{
+          background: '#fffafb',
+          backgroundImage: `
+            radial-gradient(
+              circle at top right,
+              rgba(249, 225, 228, 0.95),
+              transparent 62%
+            ),
+            radial-gradient(
+              circle at 12% 18%,
+              rgba(255, 255, 255, 0.95),
+              transparent 38%
+            )
+          `,
+          filter: 'blur(70px)',
+          backgroundRepeat: 'no-repeat',
+        }}
+      />
+
       <Navbar />
 
-      <main className="flex-grow max-w-6xl w-full mx-auto px-6 py-12">
+      <main className="relative z-10 flex-grow max-w-6xl w-full mx-auto px-6 py-12">
         {/* Banner tiêu đề tối giản */}
         <div className="text-center mb-16 animate-fade-in">
           <h1 className="font-serif text-4xl md:text-5xl font-light text-stone-900 tracking-wider mb-3">
@@ -104,7 +125,9 @@ export const Home: React.FC = () => {
         )}
       </main>
 
-      <Footer />
+      <div className="relative z-10">
+        <Footer />
+      </div>
       <CartDrawer />
       
       {/* Lightbox xem ảnh kích thước lớn */}

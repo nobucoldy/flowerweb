@@ -7,15 +7,20 @@ import { isDemoMode, saveLocalOrder } from '../lib/demoData'
 
 export const CartDrawer: React.FC = () => {
   const { items, isOpen, setIsOpen, updateQuantity, removeFromCart, getTotalPrice } = useCartStore()
-  const { settings } = useSettingsStore()
+  const { settings, fetchSettings } = useSettingsStore()
   const [isCopied, setIsCopied] = useState(false)
   const [orderText, setOrderText] = useState('')
   const [showInstruction, setShowInstruction] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  const zaloPhone = settings.zalo_phone || '0363645261'
+  const zaloPhone = settings.zalo_phone
   const shopName = settings.shop_name || 'Que Anh Flower'
   const messageTemplate = settings.message_template || 'Chào shop, mình muốn đặt đơn hàng hoa lụa:'
+
+  // Tạo nội dung tin nhắn gửi qua Zalo
+  useEffect(() => {
+    fetchSettings()
+  }, [fetchSettings])
 
   // Tạo nội dung tin nhắn gửi qua Zalo
   useEffect(() => {
@@ -53,6 +58,11 @@ export const CartDrawer: React.FC = () => {
 
   // Xử lý đặt hàng qua Zalo (Ghi đơn hàng ẩn + Copy + Chuyển hướng)
   const handleCheckout = async () => {
+    if (!zaloPhone) {
+      alert('Shop chưa cấu hình số điện thoại Zalo nhận đơn. Vui lòng kiểm tra lại phần cài đặt cửa hàng.')
+      return
+    }
+
     setIsLoading(true)
     const successCopy = await handleCopy()
 

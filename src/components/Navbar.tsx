@@ -10,7 +10,7 @@ export const Navbar: React.FC = () => {
   const totalItems = getTotalItems()
 
   return (
-    <header className="sticky top-0 z-35 w-full bg-stone-50/80 backdrop-blur-md border-b border-stone-100/60">
+    <header className="sticky top-0 z-35 w-full bg-[#fffafb]/75 backdrop-blur-md border-b border-[#f9e1e4]/70">
       <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
         {/* Logo / Tên shop */}
         <a 
