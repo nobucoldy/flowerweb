@@ -7,17 +7,26 @@ export const Navbar: React.FC = () => {
   const { setIsOpen, getTotalItems } = useCartStore()
   const { settings } = useSettingsStore()
   const shopName = settings.shop_name || 'Que Anh Flower'
+  const [firstName, ...restNameParts] = shopName.split(' ')
+  const lightName = restNameParts.join(' ')
   const totalItems = getTotalItems()
 
   return (
-    <header className="sticky top-0 z-35 w-full bg-[#fffafb]/75 backdrop-blur-md border-b border-[#f9e1e4]/70">
+    <header className="fixed top-0 left-0 z-35 w-full bg-[#fffafb]/75 backdrop-blur-md border-b border-[#f9e1e4]/70">
       <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
         {/* Logo / Tên shop */}
         <a 
           href="/" 
-          className="font-serif text-2xl md:text-3xl font-medium tracking-wider text-stone-900 hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2.5 font-serif text-2xl md:text-3xl tracking-[0.08em] text-stone-900 hover:opacity-80 transition-opacity"
         >
-          {shopName}
+          <img
+            src="/sunflower.png"
+            alt=""
+            className="h-9 w-9 object-contain md:h-11 md:w-11"
+            aria-hidden="true"
+          />
+          <span className="font-medium leading-none">{firstName}</span>
+          {lightName && <span className="font-medium leading-none">{lightName}</span>}
         </a>
 
         {/* Giỏ hàng icon */}

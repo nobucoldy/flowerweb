@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Navbar } from '../components/Navbar'
 import { Footer } from '../components/Footer'
 import { CartDrawer } from '../components/CartDrawer'
+import { ChatBubbles } from '../components/ChatBubbles'
 import { ProductCard } from '../components/ProductCard'
 import { ImageLightbox } from '../components/ImageLightbox'
 import { supabase } from '../lib/supabaseClient'
@@ -68,7 +69,7 @@ export const Home: React.FC = () => {
 
       <Navbar />
 
-      <main className="relative z-10 flex-grow max-w-6xl w-full mx-auto px-6 py-12">
+      <main className="relative z-10 flex-grow max-w-6xl w-full mx-auto px-6 pt-28 pb-12 md:pt-32">
         {/* Banner tiêu đề tối giản */}
         <div className="text-center mb-16 animate-fade-in">
           <h1 className="font-serif text-4xl md:text-5xl font-light text-stone-900 tracking-wider mb-3">
@@ -128,6 +129,7 @@ export const Home: React.FC = () => {
       <div className="relative z-10">
         <Footer />
       </div>
+      <ChatBubbles />
       <CartDrawer />
       
       {/* Lightbox xem ảnh kích thước lớn */}
