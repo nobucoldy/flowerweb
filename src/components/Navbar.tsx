@@ -19,12 +19,7 @@ export const Navbar: React.FC = () => {
           href="/" 
           className="flex items-center gap-2.5 font-serif text-2xl md:text-3xl tracking-[0.08em] text-stone-900 hover:opacity-80 transition-opacity"
         >
-          <img
-            src="/sunflower.png"
-            alt=""
-            className="h-9 w-9 object-contain md:h-11 md:w-11"
-            aria-hidden="true"
-          />
+          
           <span className="font-medium leading-none">{firstName}</span>
           {lightName && <span className="font-medium leading-none">{lightName}</span>}
         </a>
