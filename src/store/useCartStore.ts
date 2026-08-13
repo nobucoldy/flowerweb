@@ -61,7 +61,7 @@ export const useCartStore = create<CartState>((set, get) => {
         newItems = [...currentItems, { product, quantity: 1 }]
       }
 
-      set({ items: newItems, isOpen: true }) // Tự động mở giỏ hàng khi thêm sản phẩm (Trải nghiệm tốt)
+      set({ items: newItems })
       saveCart(newItems)
     },
     removeFromCart: (productId) => {

@@ -54,7 +54,7 @@ export const Home: React.FC = () => {
             {settings.shop_name || 'Que Anh Flower'}
           </h1>
           <p className="text-stone-400 text-[10px] md:text-xs tracking-widest uppercase font-light">
-            Hoa lụa nghệ thuật cao cấp • Tinh tế & Sang trọng
+            Hoa lụa - Hoa sáp
           </p>
         </div>
 

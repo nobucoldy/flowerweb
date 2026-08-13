@@ -13,7 +13,7 @@ export const CartDrawer: React.FC = () => {
   const [showInstruction, setShowInstruction] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  const zaloPhone = settings.zalo_phone || '0900000000'
+  const zaloPhone = settings.zalo_phone || '0363645261'
   const shopName = settings.shop_name || 'Que Anh Flower'
   const messageTemplate = settings.message_template || 'Chào shop, mình muốn đặt đơn hàng hoa lụa:'
 

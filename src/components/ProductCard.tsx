@@ -1,5 +1,5 @@
-import React from 'react'
-import { Plus } from 'lucide-react'
+import React, { useEffect, useRef, useState } from 'react'
+import { Check, Plus } from 'lucide-react'
 import { useCartStore } from '../store/useCartStore'
 import type { Product } from '../store/useCartStore'
 
@@ -10,6 +10,30 @@ interface ProductCardProps {
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onImageClick }) => {
   const addToCart = useCartStore((state) => state.addToCart)
+  const [isAdding, setIsAdding] = useState(false)
+  const feedbackTimer = useRef<number | null>(null)
+
+  useEffect(() => {
+    return () => {
+      if (feedbackTimer.current) {
+        window.clearTimeout(feedbackTimer.current)
+      }
+    }
+  }, [])
+
+  const handleAddToCart = () => {
+    addToCart(product)
+    setIsAdding(false)
+
+    if (feedbackTimer.current) {
+      window.clearTimeout(feedbackTimer.current)
+    }
+
+    window.requestAnimationFrame(() => {
+      setIsAdding(true)
+      feedbackTimer.current = window.setTimeout(() => setIsAdding(false), 950)
+    })
+  }
 
   return (
     <div className="group flex flex-col bg-white overflow-hidden rounded-md border border-stone-100/80 transition-all duration-300 hover:shadow-xs hover:border-stone-200">
@@ -39,13 +63,27 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onImageClick 
         </p>
 
         {/* Nút thêm vào giỏ hàng */}
-        <button
-          onClick={() => addToCart(product)}
-          className="mt-auto w-full flex items-center justify-center gap-1.5 py-2.5 px-4 bg-stone-950 hover:bg-stone-800 text-stone-50 rounded-sm text-xs font-semibold tracking-wider uppercase transition-colors duration-200 cursor-pointer"
-        >
-          <Plus size={14} />
-          Thêm vào giỏ
-        </button>
+        <div className="relative mt-auto">
+          {isAdding && (
+            <div
+              className="pointer-events-none absolute left-1/2 top-0 z-10 flex -translate-x-1/2 items-center gap-1 rounded-full bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-stone-900 shadow-lg ring-1 ring-stone-200 animate-add-confirm"
+              aria-live="polite"
+            >
+              <Check size={12} className="text-emerald-600" />
+              Đã thêm
+            </div>
+          )}
+          <button
+            onClick={handleAddToCart}
+            className={`relative w-full overflow-hidden flex items-center justify-center gap-1.5 py-2.5 px-4 bg-stone-950 hover:bg-stone-800 text-stone-50 rounded-sm text-xs font-semibold tracking-wider uppercase transition-colors duration-200 cursor-pointer ${
+              isAdding ? 'animate-add-press' : ''
+            }`}
+          >
+            {isAdding && <span className="absolute inset-0 animate-add-sheen bg-white/15" />}
+            <Plus size={14} className="relative" />
+            <span className="relative">Thêm vào giỏ</span>
+          </button>
+        </div>
       </div>
     </div>
   )

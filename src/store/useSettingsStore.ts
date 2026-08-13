@@ -10,7 +10,7 @@ interface SettingsState {
 
 export const useSettingsStore = create<SettingsState>((set) => ({
   settings: {
-    zalo_phone: '0900000000',
+    zalo_phone: '0363645261',
     shop_name: 'Que Anh Flower',
     message_template: 'Chào Que Anh Flower, mình muốn đặt các mẫu hoa lụa sau:'
   },
