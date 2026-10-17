@@ -5,7 +5,7 @@ import type { Product } from '../store/useCartStore'
 
 interface ProductCardProps {
   product: Product
-  onImageClick: (imageUrl: string) => void
+  onImageClick: (product: Product) => void
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onImageClick }) => {
@@ -40,7 +40,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onImageClick 
       {/* Container Ảnh sản phẩm */}
       <div 
         className="relative aspect-[3/4] overflow-hidden bg-stone-50 cursor-zoom-in"
-        onClick={() => onImageClick(product.image_url)}
+        onClick={() => onImageClick(product)}
+        title="Nhấn để phóng to ảnh và xem chi tiết"
       >
         <img 
           src={product.image_url} 
@@ -58,9 +59,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onImageClick 
           {product.name}
         </h3>
         
-        <p className="text-stone-500 text-sm font-medium mb-4">
-          {product.price.toLocaleString('vi-VN')}đ
-        </p>
+        <div className="mb-4">
+          <p className="text-stone-800 text-sm font-semibold">
+            {product.price.toLocaleString('vi-VN')}đ
+          </p>
+        </div>
 
         {/* Nút thêm vào giỏ hàng */}
         <div className="relative mt-auto">

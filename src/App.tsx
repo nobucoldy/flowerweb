@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Home } from './pages/Home'
+import { Feedback } from './pages/Feedback'
+import { Showcase } from './pages/Showcase'
 import { AdminLogin } from './pages/AdminLogin'
 import { AdminDashboard } from './pages/AdminDashboard'
 import { useAuthStore } from './store/useAuthStore'
@@ -52,8 +54,19 @@ function App() {
     }
   }
 
+  // Trang hòm thư góp ý ẩn danh
+  if (path === '/feedback' || path === '/feedback/' || path === '/gop-y') {
+    return <Feedback />
+  }
+
+  // Trang ảnh hoa thực tế & review của shop
+  if (path === '/showcase' || path === '/showcase/' || path === '/reviews' || path === '/reviews/') {
+    return <Showcase />
+  }
+
   // Trang khách hàng mặc định
   return <Home />
 }
 
 export default App
+

@@ -13,7 +13,7 @@ export const CartDrawer: React.FC = () => {
   const [showInstruction, setShowInstruction] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  const zaloPhone = settings.zalo_phone
+  const zaloPhone = (settings.zalo_phone && settings.zalo_phone !== '0900000000') ? settings.zalo_phone : '0363645261'
   const shopName = settings.shop_name || 'Que Anh Flower'
   const messageTemplate = settings.message_template || 'Chào shop, mình muốn đặt đơn hàng hoa lụa:'
 
@@ -107,19 +107,27 @@ export const CartDrawer: React.FC = () => {
     window.open(`https://zalo.me/${zaloPhone}`, '_blank')
   }
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 z-40 overflow-hidden">
-      {/* Backdrop */}
+    <div 
+      className={`fixed inset-0 z-40 overflow-hidden transition-all duration-300 ${
+        isOpen ? 'pointer-events-auto visible' : 'pointer-events-none invisible delay-300'
+      }`}
+    >
+      {/* Backdrop mờ nền */}
       <div 
-        className="absolute inset-0 bg-stone-900/40 backdrop-blur-xs transition-opacity duration-300 animate-fade-in"
+        className={`absolute inset-0 bg-stone-900/40 backdrop-blur-xs transition-opacity duration-300 ease-in-out ${
+          isOpen ? 'opacity-100' : 'opacity-0'
+        }`}
         onClick={() => setIsOpen(false)}
       />
 
-      <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
-        {/* Drawer Panel */}
-        <div className="w-screen max-w-md transform bg-white shadow-xl flex flex-col animate-slide-in-right">
+      <div className="absolute inset-y-0 right-0 max-w-full flex pl-10 pointer-events-none">
+        {/* Drawer Panel: Hiệu ứng trượt mở và kéo trượt vào lề khi đóng */}
+        <div 
+          className={`w-screen max-w-md bg-white shadow-2xl flex flex-col pointer-events-auto transform transition-transform duration-300 ease-[cubic-bezier(0.25,1,0.5,1)] ${
+            isOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
           {/* Header */}
           <div className="px-6 py-6 border-b border-stone-100 flex items-center justify-between">
             <h2 className="text-lg font-medium text-stone-950 font-serif tracking-wide">

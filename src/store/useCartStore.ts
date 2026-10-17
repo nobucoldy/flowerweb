@@ -5,6 +5,10 @@ export interface Product {
   name: string
   price: number
   image_url: string
+  status?: 'active' | 'inactive'
+  views_count?: number
+  category?: string
+  created_at?: string
 }
 
 export interface CartItem {
