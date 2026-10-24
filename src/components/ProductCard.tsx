@@ -48,6 +48,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onImageClick 
           alt={product.name} 
           className="w-full h-full object-cover select-none transition-transform duration-700 ease-out group-hover:scale-105"
           loading="lazy"
+          decoding="async"
         />
         {/* Hiệu ứng làm mờ nhẹ ảnh khi hover */}
         <div className="absolute inset-0 bg-stone-900/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

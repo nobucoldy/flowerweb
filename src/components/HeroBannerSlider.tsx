@@ -121,6 +121,8 @@ export const HeroBannerSlider: React.FC = () => {
                 src={banner.image_url}
                 alt={banner.title || `Banner Que Anh Flower ${index + 1}`}
                 loading={index === 0 ? 'eager' : 'lazy'}
+                fetchPriority={index === 0 ? 'high' : 'auto'}
+                decoding="async"
                 onLoad={(e) => {
                   if (index === 0 && !bannerRatio) {
                     const { naturalWidth, naturalHeight } = e.currentTarget
