@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Plus, Edit, Trash2, Eye, EyeOff, Upload, X, Loader2, Save, Search, RotateCcw, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase, supabaseAdmin, uploadStorageImage } from '../../../lib/supabaseClient'
+import { withDbRetry } from '../../../lib/supabaseHelper'
 import { isDemoMode, getLocalProducts, saveLocalProducts, saveLocalProduct, toggleProductStatusLocal, deleteLocalProduct, resetToSeedData } from '../../../lib/demoData'
 import { compressImage, validateImageFile } from '../../../lib/imageUtils'
 import { parsePriceInput } from '../../../lib/priceUtils'
@@ -202,32 +203,38 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({ onProductsLoaded }) =>
       let savedProduct: AdminProduct
 
       if (!isDemoMode) {
-        try {
-          if (editingProduct) {
-            const { data } = await supabaseAdmin
+        if (editingProduct) {
+          // Dùng upsert kèm id để nếu sản phẩm chưa có trong DB sẽ tự động được INSERT vào DB!
+          const { data, error } = await withDbRetry<AdminProduct[]>(() =>
+            supabaseAdmin
               .from('products')
-              .update(productPayload)
-              .eq('id', editingProduct.id)
+              .upsert({ ...productPayload, id: editingProduct.id }, { onConflict: 'id' })
               .select()
+          )
 
-            savedProduct = (data && data[0]) ? (data[0] as AdminProduct) : { ...editingProduct, ...productPayload }
-          } else {
-            const { data } = await supabaseAdmin
+          if (error) {
+            console.error('Lỗi Supabase khi cập nhật sản phẩm:', error)
+            throw new Error(`Không thể lưu vào Database: ${error.message || 'Lỗi kết nối'}`)
+          }
+
+          savedProduct = (data && data[0]) ? data[0] : { ...editingProduct, ...productPayload }
+        } else {
+          const { data, error } = await withDbRetry<AdminProduct[]>(() =>
+            supabaseAdmin
               .from('products')
               .insert(productPayload)
               .select()
+          )
 
-            savedProduct = (data && data[0]) ? (data[0] as AdminProduct) : {
-              ...productPayload,
-              id: `prod-${Date.now()}`,
-              created_at: new Date().toISOString()
-            }
+          if (error) {
+            console.error('Lỗi Supabase khi thêm mới sản phẩm:', error)
+            throw new Error(`Không thể lưu vào Database: ${error.message || 'Lỗi kết nối'}`)
           }
-        } catch {
-          savedProduct = {
-            ...productPayload,
-            id: editingProduct?.id || `prod-${Date.now()}`,
-            created_at: editingProduct?.created_at || new Date().toISOString()
+
+          if (data && data[0]) {
+            savedProduct = data[0]
+          } else {
+            throw new Error('Không nhận được dữ liệu phản hồi từ Database.')
           }
         }
       } else {
@@ -274,15 +281,28 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({ onProductsLoaded }) =>
 
     try {
       if (!isDemoMode) {
-        await supabaseAdmin
+        const { error, data } = await supabaseAdmin
           .from('products')
           .update({ status: newStatus })
           .eq('id', product.id)
+          .select('id')
+
+        if (error) {
+          console.error('Lỗi Supabase khi cập nhật trạng thái:', error)
+          alert(`Không thể lưu trạng thái vào Database: ${error.message}`)
+        } else if (!data || data.length === 0) {
+          // Trường hợp ID chưa có trên Database (ví dụ từ seed data), tự động upsert bản ghi vào DB
+          await supabaseAdmin.from('products').upsert({
+            ...product,
+            status: newStatus
+          }, { onConflict: 'id' })
+        }
       } else {
         toggleProductStatusLocal(product.id, newStatus)
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Lỗi cập nhật trạng thái:', err)
+      alert(`Lỗi: ${err.message || 'Không thể cập nhật'}`)
     } finally {
       setTogglingProductId(null)
     }
@@ -302,7 +322,11 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({ onProductsLoaded }) =>
 
     try {
       if (!isDemoMode) {
-        await supabaseAdmin.from('products').delete().eq('id', id)
+        const { error } = await supabaseAdmin.from('products').delete().eq('id', id)
+        if (error) {
+          console.error('Lỗi khi xóa khỏi Database:', error)
+          alert(`Không thể xóa khỏi Database: ${error.message}`)
+        }
       } else {
         deleteLocalProduct(id)
       }

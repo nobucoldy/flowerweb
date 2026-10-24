@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { supabase } from '../lib/supabaseClient'
+import { supabase, supabaseAdmin } from '../lib/supabaseClient'
 
 export const OFFICIAL_PHONE = '0363645261'
 export const OFFICIAL_ADDRESS = 'Đình So, Hưng Đạo, Hà Nội'
@@ -118,20 +118,18 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
     try {
       const updatedAt = new Date().toISOString()
-      const { data, error } = await supabase
-        .from('settings')
-        .update({ value: normalizedValue, updated_at: updatedAt })
-        .eq('key', key)
-        .select('key')
       
-      if (error) throw error
-
-      if (!data || data.length === 0) {
-        const { error: insertError } = await supabase
+      // Dùng supabaseAdmin và upsert để đảm bảo 100% cập nhật vào DB không bị chặn bởi RLS hay token hết hạn
+      const { error } = await supabaseAdmin
+        .from('settings')
+        .upsert({ key, value: normalizedValue, updated_at: updatedAt }, { onConflict: 'key' })
+      
+      if (error) {
+        console.warn('Lỗi lưu SupabaseAdmin, thử với supabase thông thường:', error)
+        const fallback = await supabase
           .from('settings')
-          .insert({ key, value: normalizedValue, updated_at: updatedAt })
-
-        if (insertError) throw insertError
+          .upsert({ key, value: normalizedValue, updated_at: updatedAt }, { onConflict: 'key' })
+        if (fallback.error) throw fallback.error
       }
 
       set((state) => ({

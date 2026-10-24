@@ -150,30 +150,34 @@ export const ShowcaseTab: React.FC<ShowcaseTabProps> = ({ onShowcaseCountChange 
       let savedItem: ShopShowcase
 
       if (!isDemoMode) {
-        try {
-          if (editingShowcase) {
-            const { data } = await supabaseAdmin
-              .from('shop_showcase')
-              .update(showcasePayload)
-              .eq('id', editingShowcase.id)
-              .select()
-            savedItem = (data && data[0]) ? (data[0] as ShopShowcase) : { ...editingShowcase, ...showcasePayload }
-          } else {
-            const { data } = await supabaseAdmin
-              .from('shop_showcase')
-              .insert([showcasePayload])
-              .select()
-            savedItem = (data && data[0]) ? (data[0] as ShopShowcase) : {
-              ...showcasePayload,
-              id: `sc-${Date.now()}`,
-              created_at: new Date().toISOString()
-            }
+        if (editingShowcase) {
+          // Dùng upsert kèm id để nếu showcase chưa có trong DB sẽ tự động được INSERT vào DB!
+          const { data, error } = await supabaseAdmin
+            .from('shop_showcase')
+            .upsert({ ...showcasePayload, id: editingShowcase.id }, { onConflict: 'id' })
+            .select()
+
+          if (error) {
+            console.error('Lỗi Supabase khi cập nhật ảnh thực tế:', error)
+            throw new Error(error.message)
           }
-        } catch {
-          savedItem = {
-            ...showcasePayload,
-            id: editingShowcase?.id || `sc-${Date.now()}`,
-            created_at: editingShowcase?.created_at || new Date().toISOString()
+
+          savedItem = (data && data[0]) ? (data[0] as ShopShowcase) : { ...editingShowcase, ...showcasePayload }
+        } else {
+          const { data, error } = await supabaseAdmin
+            .from('shop_showcase')
+            .insert([showcasePayload])
+            .select()
+
+          if (error) {
+            console.error('Lỗi Supabase khi đăng ảnh thực tế:', error)
+            throw new Error(error.message)
+          }
+
+          if (data && data[0]) {
+            savedItem = data[0] as ShopShowcase
+          } else {
+            throw new Error('Không nhận được dữ liệu phản hồi từ Database.')
           }
         }
       } else {
@@ -215,15 +219,30 @@ export const ShowcaseTab: React.FC<ShowcaseTabProps> = ({ onShowcaseCountChange 
 
     try {
       if (!isDemoMode) {
-        await supabaseAdmin
+        const { error, data } = await supabaseAdmin
           .from('shop_showcase')
           .update({ is_pinned: !currentPinStatus })
           .eq('id', id)
+          .select('id')
+
+        if (error) {
+          console.error('Lỗi ghim showcase:', error)
+          alert(`Không thể lưu trạng thái ghim: ${error.message}`)
+        } else if (!data || data.length === 0) {
+          const target = showcases.find(s => s.id === id)
+          if (target) {
+            await supabaseAdmin.from('shop_showcase').upsert({
+              ...target,
+              is_pinned: !currentPinStatus
+            }, { onConflict: 'id' })
+          }
+        }
       } else {
         togglePinShowcase(id)
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Lỗi ghim showcase:', err)
+      alert(`Lỗi: ${err.message || 'Không thể cập nhật'}`)
     } finally {
       setPinningShowcaseId(null)
     }
@@ -241,7 +260,11 @@ export const ShowcaseTab: React.FC<ShowcaseTabProps> = ({ onShowcaseCountChange 
 
     try {
       if (!isDemoMode) {
-        await supabaseAdmin.from('shop_showcase').delete().eq('id', id)
+        const { error } = await supabaseAdmin.from('shop_showcase').delete().eq('id', id)
+        if (error) {
+          console.error('Lỗi khi xóa showcase:', error)
+          alert(`Không thể xóa khỏi Database: ${error.message}`)
+        }
       } else {
         deleteLocalShowcase(id)
       }

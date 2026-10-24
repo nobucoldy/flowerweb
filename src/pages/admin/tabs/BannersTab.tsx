@@ -40,10 +40,20 @@ export const BannersTab: React.FC<BannersTabProps> = ({ onBannersCountChange }) 
           .order('order_index', { ascending: true })
           .order('created_at', { ascending: false })
         if (error) throw error
-        if (data) {
+        if (data && data.length > 0) {
           const list = data as ShopBanner[]
           setBanners(list)
           onBannersCountChange?.(list.length)
+        } else {
+          // Bảng trong database đang rỗng, tự động khởi tạo banner mẫu lên Database
+          const local = getLocalBanners()
+          setBanners(local)
+          onBannersCountChange?.(local.length)
+          try {
+            await supabaseAdmin.from('shop_banners').upsert(local, { onConflict: 'id' })
+          } catch (seedErr) {
+            console.warn('Khởi tạo banner mẫu lên DB chưa thành công:', seedErr)
+          }
         }
       }
     } catch {
@@ -127,44 +137,48 @@ export const BannersTab: React.FC<BannersTabProps> = ({ onBannersCountChange }) 
       }
 
       if (!isDemoMode) {
-        try {
-          let savedItem: ShopBanner
-          if (editingBanner) {
-            const { data } = await supabaseAdmin
-              .from('shop_banners')
-              .update(bannerPayload)
-              .eq('id', editingBanner.id)
-              .select()
-            savedItem = (data && data[0]) ? (data[0] as ShopBanner) : { ...editingBanner, ...bannerPayload }
-          } else {
-            const { data } = await supabaseAdmin
-              .from('shop_banners')
-              .insert([bannerPayload])
-              .select()
-            savedItem = (data && data[0]) ? (data[0] as ShopBanner) : {
-              ...bannerPayload,
-              id: `bn-${Date.now()}`,
-              created_at: new Date().toISOString()
-            }
+        let savedItem: ShopBanner
+        if (editingBanner) {
+          // Dùng upsert kèm id để nếu banner chưa có trong DB sẽ tự động được INSERT vào DB!
+          const { data, error } = await supabaseAdmin
+            .from('shop_banners')
+            .upsert({ ...bannerPayload, id: editingBanner.id }, { onConflict: 'id' })
+            .select()
+
+          if (error) {
+            console.error('Lỗi Supabase khi cập nhật banner:', error)
+            throw new Error(error.message)
           }
-          setBanners(prev => {
-            let next: ShopBanner[]
-            if (editingBanner) {
-              next = prev.map(b => b.id === editingBanner.id ? { ...b, ...savedItem } : b)
-            } else {
-              next = [savedItem, ...prev]
-            }
-            onBannersCountChange?.(next.length)
-            return next
-          })
-        } catch {
-          const updatedList = saveLocalBanner({
-            ...bannerPayload,
-            id: editingBanner?.id
-          })
-          setBanners(updatedList)
-          onBannersCountChange?.(updatedList.length)
+
+          savedItem = (data && data[0]) ? (data[0] as ShopBanner) : { ...editingBanner, ...bannerPayload }
+        } else {
+          const { data, error } = await supabaseAdmin
+            .from('shop_banners')
+            .insert([bannerPayload])
+            .select()
+
+          if (error) {
+            console.error('Lỗi Supabase khi thêm mới banner:', error)
+            throw new Error(error.message)
+          }
+
+          if (data && data[0]) {
+            savedItem = data[0] as ShopBanner
+          } else {
+            throw new Error('Không nhận được dữ liệu phản hồi từ Database.')
+          }
         }
+
+        setBanners(prev => {
+          let next: ShopBanner[]
+          if (editingBanner) {
+            next = prev.map(b => b.id === editingBanner.id ? { ...b, ...savedItem } : b)
+          } else {
+            next = [savedItem, ...prev]
+          }
+          onBannersCountChange?.(next.length)
+          return next
+        })
       } else {
         const updatedList = saveLocalBanner({
           ...bannerPayload,
@@ -189,15 +203,30 @@ export const BannersTab: React.FC<BannersTabProps> = ({ onBannersCountChange }) 
 
     try {
       if (!isDemoMode) {
-        await supabaseAdmin
+        const { error, data } = await supabaseAdmin
           .from('shop_banners')
           .update({ is_active: !currentStatus })
           .eq('id', id)
+          .select('id')
+
+        if (error) {
+          console.error('Lỗi Supabase khi đổi trạng thái banner:', error)
+          alert(`Không thể lưu trạng thái vào Database: ${error.message}`)
+        } else if (!data || data.length === 0) {
+          const target = banners.find(b => b.id === id)
+          if (target) {
+            await supabaseAdmin.from('shop_banners').upsert({
+              ...target,
+              is_active: !currentStatus
+            }, { onConflict: 'id' })
+          }
+        }
       } else {
         toggleBannerActiveStatus(id)
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Lỗi đổi trạng thái banner:', err)
+      alert(`Lỗi: ${err.message || 'Không thể cập nhật'}`)
     }
   }
 
@@ -213,7 +242,11 @@ export const BannersTab: React.FC<BannersTabProps> = ({ onBannersCountChange }) 
 
     try {
       if (!isDemoMode) {
-        await supabaseAdmin.from('shop_banners').delete().eq('id', id)
+        const { error } = await supabaseAdmin.from('shop_banners').delete().eq('id', id)
+        if (error) {
+          console.error('Lỗi khi xóa banner khỏi Database:', error)
+          alert(`Không thể xóa khỏi Database: ${error.message}`)
+        }
       } else {
         deleteLocalBanner(id)
       }
