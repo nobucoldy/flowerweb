@@ -37,8 +37,8 @@ export const Navbar: React.FC = () => {
 
         {/* Cụm Action Buttons: Trang chủ, Ảnh thực tế, Góp ý ẩn danh, Giỏ hàng */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* 0. Icon Ngôi nhà (Trang chủ) */}
-          <div className="relative group">
+          {/* 0. Icon Ngôi nhà (Trang chủ) - Ẩn trên mobile, hiển thị trên máy tính (sm trở lên) */}
+          <div className="relative group hidden sm:block">
             <button
               onClick={() => {
                 if (window.location.pathname === '/') {
