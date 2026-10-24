@@ -200,7 +200,7 @@ export const Feedback: React.FC = () => {
                 required
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="Bạn hãy chia sẻ cảm nghĩ, điều bạn thích hoặc điều shop cần cải thiện nhé (ví dụ: độ mềm mại và tinh xảo của hoa lụa, độ bền màu, cách phối màu bó hoa, shipper giao hàng thế nào, hay bạn muốn shop cắm thêm mẫu hoa gì...)..."
+                placeholder="Bạn hãy chia sẻ cảm nghĩ, điều bạn thích hoặc điều shop cần cải thiện nhé ..."
                 className="w-full px-4 py-3 text-sm bg-stone-50/50 border border-stone-200 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-stone-850 focus:bg-white transition-all resize-y"
               />
             </div>
@@ -218,7 +218,7 @@ export const Feedback: React.FC = () => {
                 type="text"
                 value={senderTag}
                 onChange={(e) => setSenderTag(e.target.value)}
-                placeholder="Ví dụ: Khách quen Đình So, Mã #03, Bạn thích màu hồng..."
+                placeholder="Ví dụ: Khách quen, Fan shop..."
                 className="w-full px-4 py-2.5 text-sm bg-stone-50/50 border border-stone-200 rounded-xl focus:outline-hidden focus:ring-1 focus:ring-stone-850 focus:bg-white transition-all"
               />
               <p className="text-[11px] text-stone-400 mt-1.5 flex items-center gap-1">
