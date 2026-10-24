@@ -7,11 +7,29 @@ export const HeroBannerSlider: React.FC = () => {
   const [banners, setBanners] = useState<ShopBanner[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [isPaused, setIsPaused] = useState(false)
+  const [bannerRatio, setBannerRatio] = useState<number | null>(null)
   const touchStartX = useRef<number | null>(null)
 
   useEffect(() => {
     fetchBanners()
   }, [])
+
+  // Tự động nhận diện tỉ lệ ảnh banner thực tế để scale khung vừa khít trên mọi kích thước màn hình
+  useEffect(() => {
+    if (banners.length > 0 && banners[0]?.image_url) {
+      const img = new Image()
+      img.onload = () => {
+        const { naturalWidth, naturalHeight } = img
+        if (naturalWidth && naturalHeight && naturalWidth > naturalHeight) {
+          const ratio = naturalWidth / naturalHeight
+          if (ratio >= 1.5 && ratio <= 3.2) {
+            setBannerRatio(ratio)
+          }
+        }
+      }
+      img.src = banners[0].image_url
+    }
+  }, [banners])
 
   const fetchBanners = async () => {
     try {
@@ -88,8 +106,11 @@ export const HeroBannerSlider: React.FC = () => {
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Khung chứa ảnh tỉ lệ ngang chuẩn landscape */}
-      <div className="relative overflow-hidden rounded-2xl md:rounded-3xl border border-[#f9e1e4]/70 shadow-xs aspect-[16/9] sm:aspect-[21/9] max-h-[380px] md:max-h-[420px] w-full bg-stone-100">
+      {/* Khung chứa ảnh tỉ lệ ngang chuẩn landscape - Tự động nhận diện tỉ lệ ảnh để scale đúng kích thước trên cả điện thoại và máy tính */}
+      <div 
+        className="relative overflow-hidden rounded-2xl md:rounded-3xl border border-[#f9e1e4]/70 shadow-xs aspect-[21/9] max-h-[380px] md:max-h-[420px] w-full bg-stone-100"
+        style={bannerRatio ? { aspectRatio: `${bannerRatio}` } : undefined}
+      >
         <div 
           className="flex h-full w-full transition-transform duration-700 ease-out"
           style={{ transform: `translateX(-${currentIndex * 100}%)` }}
@@ -100,19 +121,30 @@ export const HeroBannerSlider: React.FC = () => {
                 src={banner.image_url}
                 alt={banner.title || `Banner Que Anh Flower ${index + 1}`}
                 loading={index === 0 ? 'eager' : 'lazy'}
+                onLoad={(e) => {
+                  if (index === 0 && !bannerRatio) {
+                    const { naturalWidth, naturalHeight } = e.currentTarget
+                    if (naturalWidth && naturalHeight && naturalWidth > naturalHeight) {
+                      const ratio = naturalWidth / naturalHeight
+                      if (ratio >= 1.5 && ratio <= 3.2) {
+                        setBannerRatio(ratio)
+                      }
+                    }
+                  }
+                }}
                 className="w-full h-full object-cover object-center block"
               />
 
               {/* Lớp phủ dải màu và chữ nghệ thuật nếu có */}
               {(banner.title || banner.sub_title) && (
-                <div className="absolute inset-0 bg-gradient-to-t from-stone-950/75 via-stone-950/20 to-transparent flex flex-col justify-end p-5 sm:p-7 md:p-9 text-left">
+                <div className="absolute inset-0 bg-gradient-to-t from-stone-950/75 via-stone-950/20 to-transparent flex flex-col justify-end p-3.5 sm:p-7 md:p-9 text-left">
                   {banner.title && (
-                    <h3 className="text-white font-serif text-lg sm:text-2xl md:text-3xl font-light tracking-wide drop-shadow-xs">
+                    <h3 className="text-white font-serif text-sm sm:text-2xl md:text-3xl font-light tracking-wide drop-shadow-xs">
                       {banner.title}
                     </h3>
                   )}
                   {banner.sub_title && (
-                    <p className="text-stone-200 text-xs sm:text-sm font-light mt-1 max-w-xl line-clamp-2 drop-shadow-xs">
+                    <p className="text-stone-200 text-[11px] sm:text-sm font-light mt-0.5 sm:mt-1 max-w-xl line-clamp-2 drop-shadow-xs">
                       {banner.sub_title}
                     </p>
                   )}
@@ -128,23 +160,23 @@ export const HeroBannerSlider: React.FC = () => {
             <button
               onClick={prevSlide}
               aria-label="Ảnh trước"
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/80 hover:bg-white text-stone-800 backdrop-blur-xs flex items-center justify-center transition-all opacity-80 sm:opacity-0 sm:group-hover:opacity-100 shadow-sm cursor-pointer z-10"
+              className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-10 sm:h-10 rounded-full bg-white/80 hover:bg-white text-stone-800 backdrop-blur-xs flex items-center justify-center transition-all opacity-80 sm:opacity-0 sm:group-hover:opacity-100 shadow-sm cursor-pointer z-10"
             >
-              <ChevronLeft size={20} />
+              <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
             <button
               onClick={nextSlide}
               aria-label="Ảnh kế tiếp"
-              className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-white/80 hover:bg-white text-stone-800 backdrop-blur-xs flex items-center justify-center transition-all opacity-80 sm:opacity-0 sm:group-hover:opacity-100 shadow-sm cursor-pointer z-10"
+              className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 w-7 h-7 sm:w-10 sm:h-10 rounded-full bg-white/80 hover:bg-white text-stone-800 backdrop-blur-xs flex items-center justify-center transition-all opacity-80 sm:opacity-0 sm:group-hover:opacity-100 shadow-sm cursor-pointer z-10"
             >
-              <ChevronRight size={20} />
+              <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" />
             </button>
           </>
         )}
 
         {/* Chấm tròn chỉ số slide (Dots) */}
         {banners.length > 1 && (
-          <div className="absolute bottom-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
+          <div className="absolute bottom-2 sm:bottom-3.5 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-10">
             {banners.map((_, idx) => (
               <button
                 key={idx}
