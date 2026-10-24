@@ -178,25 +178,23 @@ export const Home: React.FC = () => {
             ))}
           </div>
         ) : filteredProducts.length === 0 ? (
-          // Empty State (Khi lọc không có kết quả)
+          // Empty State (Khi lọc không có kết quả hoặc chưa có sản phẩm)
           <div className="text-center py-16 bg-white/80 backdrop-blur-xs rounded-xl border border-stone-200/70 px-8 shadow-xs max-w-md mx-auto">
-            <p className="text-stone-700 font-serif text-base mb-2">Không tìm thấy mẫu hoa phù hợp</p>
-            <p className="text-xs text-stone-500 mb-5 leading-relaxed">
+            <p className="text-stone-700 font-serif text-base mb-2">
+              {priceFilter !== 'all' ? 'Không tìm thấy mẫu hoa phù hợp' : 'Hiện chưa có sản phẩm'}
+            </p>
+            <p className={`text-xs text-stone-500 leading-relaxed ${priceFilter !== 'all' ? 'mb-5' : ''}`}>
               {priceFilter !== 'all'
                 ? 'Thử chọn khoảng giá khác để xem thêm nhiều mẫu hoa nhé.'
-                : 'Cửa hàng hiện chưa có sản phẩm nào được hiển thị.'}
+                : 'Cửa hàng hiện chưa có sản phẩm nào được hiển thị. Vui lòng quay lại sau nhé!'}
             </p>
-            {priceFilter !== 'all' ? (
+            {priceFilter !== 'all' && (
               <button
                 onClick={() => setPriceFilter('all')}
                 className="px-4 py-2 bg-stone-900 hover:bg-stone-800 text-stone-50 rounded-full text-xs font-medium transition-colors cursor-pointer"
               >
                 Xem tất cả mẫu hoa
               </button>
-            ) : (
-              <p className="text-xs text-stone-500 max-w-sm mx-auto leading-relaxed">
-                Vui lòng truy cập trang <a href="/admin" className="underline text-stone-950 font-bold hover:text-stone-700">Quản trị viên</a> để bật trạng thái hiển thị cho các sản phẩm hoa.
-              </p>
             )}
           </div>
         ) : (

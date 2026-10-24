@@ -480,7 +480,14 @@ export const saveLocalShowcase = (item: Omit<ShopShowcase, 'id' | 'created_at'> 
 
 export const togglePinShowcase = (id: string): ShopShowcase[] => {
   const current = getLocalShowcases()
-  const updated = current.map(sc => sc.id === id ? { ...sc, is_pinned: !sc.is_pinned } : sc)
+  const updated = current
+    .map(sc => sc.id === id ? { ...sc, is_pinned: !sc.is_pinned } : sc)
+    .sort((a, b) => {
+      const pinA = a.is_pinned ? 1 : 0
+      const pinB = b.is_pinned ? 1 : 0
+      if (pinB !== pinA) return pinB - pinA
+      return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
+    })
   try {
     localStorage.setItem(DEMO_SHOWCASE_KEY, JSON.stringify(updated))
   } catch {}

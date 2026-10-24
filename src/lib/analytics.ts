@@ -200,9 +200,12 @@ export const fetchAnalyticsSummary = async (
 
   for (const p of products) {
     const rawViews = p.views_count || 0
-    const computedViews = timeframe === 'all' ? rawViews : Math.max(1, Math.round(rawViews * multiplier))
+    const computedViews = 
+      timeframe === 'all' 
+        ? rawViews 
+        : (rawViews > 0 ? Math.max(1, Math.round(rawViews * multiplier)) : 0)
     totalProductViews += computedViews
-    if (!topProduct || computedViews > topProduct.views) {
+    if (computedViews > 0 && (!topProduct || computedViews > topProduct.views)) {
       topProduct = { name: p.name, views: computedViews }
     }
   }

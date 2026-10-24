@@ -1,6 +1,7 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
 import { Home } from './pages/Home'
 import { useAuthStore } from './store/useAuthStore'
+import { recordPageView } from './lib/analytics'
 import { Loader2 } from 'lucide-react'
 
 // Code-splitting các trang phụ và trang quản trị để trang chủ load cực nhanh
@@ -40,6 +41,13 @@ function App() {
   }
 
   const isAdminPath = path === '/admin' || path === '/admin/' || path.startsWith('/admin')
+
+  // Ghi nhận lượt truy cập website cho khách hàng (không tính trang quản trị admin)
+  useEffect(() => {
+    if (!isAdminPath) {
+      recordPageView()
+    }
+  }, [isAdminPath])
 
   // Chỉ chặn chờ auth khi người dùng truy cập trang quản trị admin
   if (isAdminPath && isLoading) {

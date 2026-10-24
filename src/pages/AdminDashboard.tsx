@@ -86,6 +86,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
   const [scImagePreview, setScImagePreview] = useState<string | null>(null)
   const [scSelectedFile, setScSelectedFile] = useState<File | null>(null)
   const [isSavingShowcase, setIsSavingShowcase] = useState(false)
+  const [pinningShowcaseId, setPinningShowcaseId] = useState<string | null>(null)
   const scFileInputRef = useRef<HTMLInputElement>(null)
 
   // Trạng thái Banner trang chủ (Hero Banners)
@@ -492,27 +493,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
   }
 
   const handleTogglePinShowcase = async (id: string, currentPin?: boolean) => {
+    const nextPin = !currentPin
+    setPinningShowcaseId(id)
+
+    // Cập nhật Optimistic UI và sắp xếp lại ngay lập tức để ảnh ghim nhảy lên đầu
+    setShowcases(prev => {
+      const updated = prev.map(sc => sc.id === id ? { ...sc, is_pinned: nextPin } : sc)
+      return [...updated].sort((a, b) => {
+        const pinA = a.is_pinned ? 1 : 0
+        const pinB = b.is_pinned ? 1 : 0
+        if (pinB !== pinA) return pinB - pinA
+        return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
+      })
+    })
+
     try {
       if (!isDemoMode) {
-        try {
-          await supabaseAdmin
+        let { error } = await supabaseAdmin
+          .from('shop_showcase')
+          .update({ is_pinned: nextPin })
+          .eq('id', id)
+
+        if (error) {
+          const retry = await supabase
             .from('shop_showcase')
-            .update({ is_pinned: !currentPin })
+            .update({ is_pinned: nextPin })
             .eq('id', id)
-        } catch (dbErr) {
-          console.warn('Lỗi toggle ghim DB:', dbErr)
+          if (retry.error) {
+            console.warn('Lỗi toggle ghim DB trên cả 2 client:', retry.error)
+            throw retry.error
+          }
         }
       }
-      const updated = togglePinShowcase(id)
-      setShowcases(prev => {
-        const found = prev.some(sc => sc.id === id)
-        if (found) {
-          return prev.map(sc => sc.id === id ? { ...sc, is_pinned: !currentPin } : sc)
-        }
-        return updated
-      })
-    } catch (err) {
+      togglePinShowcase(id)
+    } catch (err: any) {
       console.error('Lỗi toggle ghim showcase:', err)
+      alert(`Không thể thay đổi trạng thái ghim: ${err.message || 'Vui lòng thử lại'}`)
+      // Phục hồi lại dữ liệu chuẩn từ DB nếu gặp lỗi
+      if (!isDemoMode) {
+        await fetchShowcases()
+      } else {
+        setShowcases(getLocalShowcases())
+      }
+    } finally {
+      setPinningShowcaseId(null)
     }
   }
 
@@ -1815,14 +1839,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
                         {/* Thanh thao tác quản lý */}
                         <div className="pt-3 border-t border-stone-100 flex items-center justify-between mt-3 text-xs">
                           <button
+                            disabled={pinningShowcaseId === sc.id}
                             onClick={() => handleTogglePinShowcase(sc.id, sc.is_pinned)}
-                            className={`flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors ${
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors disabled:opacity-60 ${
                               sc.is_pinned
                                 ? 'bg-rose-50 text-rose-700 border border-rose-200'
                                 : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
                             }`}
                           >
-                            {sc.is_pinned ? <PinOff size={12} /> : <Pin size={12} />}
+                            {pinningShowcaseId === sc.id ? (
+                              <Loader2 size={12} className="animate-spin text-stone-600" />
+                            ) : sc.is_pinned ? (
+                              <PinOff size={12} />
+                            ) : (
+                              <Pin size={12} />
+                            )}
                             {sc.is_pinned ? 'Bỏ ghim' : 'Ghim'}
                           </button>
 
