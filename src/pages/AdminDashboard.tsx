@@ -52,7 +52,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
   const { signOut, user } = useAuthStore()
   const { settings, fetchSettings, updateSetting } = useSettingsStore()
   
-  const [activeTab, setActiveTab] = useState<'products' | 'settings' | 'orders' | 'feedback' | 'showcase' | 'banners'>('products')
+  const [activeTab, setActiveTab] = useState<'products' | 'settings' | 'orders' | 'feedback' | 'showcase' | 'banners'>(() => {
+    if (typeof window !== 'undefined') {
+      const hash = window.location.hash.replace('#', '')
+      if (['products', 'settings', 'orders', 'feedback', 'showcase', 'banners'].includes(hash)) {
+        return hash as any
+      }
+      const searchParams = new URLSearchParams(window.location.search)
+      const tabParam = searchParams.get('tab')
+      if (tabParam && ['products', 'settings', 'orders', 'feedback', 'showcase', 'banners'].includes(tabParam)) {
+        return tabParam as any
+      }
+    }
+    return 'products'
+  })
   const [products, setProducts] = useState<Product[]>([])
   const [orders, setOrders] = useState<DraftOrder[]>([])
   const [loadingProducts, setLoadingProducts] = useState(false)
@@ -401,16 +414,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
       if (!isDemoMode) {
         try {
           if (editingShowcase) {
-            const { error } = await supabaseAdmin
+            let { error } = await supabaseAdmin
               .from('shop_showcase')
               .update(showcasePayload)
               .eq('id', editingShowcase.id)
-            if (!error) savedToDb = true
+            if (error) {
+              const retry = await supabase
+                .from('shop_showcase')
+                .update(showcasePayload)
+                .eq('id', editingShowcase.id)
+              if (!retry.error) savedToDb = true
+              else console.warn('Lỗi update showcase trên cả 2 client:', retry.error)
+            } else {
+              savedToDb = true
+            }
           } else {
-            const { error } = await supabaseAdmin
+            let { error } = await supabaseAdmin
               .from('shop_showcase')
               .insert([showcasePayload])
-            if (!error) savedToDb = true
+            if (error) {
+              const retry = await supabase
+                .from('shop_showcase')
+                .insert([showcasePayload])
+              if (!retry.error) savedToDb = true
+              else console.warn('Lỗi insert showcase trên cả 2 client:', retry.error)
+            } else {
+              savedToDb = true
+            }
           }
           if (savedToDb) {
             await fetchShowcases()
@@ -590,16 +620,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
       if (!isDemoMode) {
         try {
           if (editingBanner) {
-            const { error } = await supabaseAdmin
+            let { error } = await supabaseAdmin
               .from('shop_banners')
               .update(bannerPayload)
               .eq('id', editingBanner.id)
-            if (!error) savedToDb = true
+            if (error) {
+              const retry = await supabase
+                .from('shop_banners')
+                .update(bannerPayload)
+                .eq('id', editingBanner.id)
+              if (!retry.error) savedToDb = true
+              else console.warn('Lỗi update banner trên cả 2 client:', retry.error)
+            } else {
+              savedToDb = true
+            }
           } else {
-            const { error } = await supabaseAdmin
+            let { error } = await supabaseAdmin
               .from('shop_banners')
               .insert(bannerPayload)
-            if (!error) savedToDb = true
+            if (error) {
+              const retry = await supabase
+                .from('shop_banners')
+                .insert(bannerPayload)
+              if (!retry.error) savedToDb = true
+              else console.warn('Lỗi insert banner trên cả 2 client:', retry.error)
+            } else {
+              savedToDb = true
+            }
           }
           if (savedToDb) {
             await fetchBanners()
@@ -2045,6 +2092,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
                     type="file"
                     ref={fileInputRef}
                     onChange={handleFileChange}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      ;(e.target as HTMLInputElement).value = ''
+                    }}
                     accept="image/*"
                     className="hidden"
                   />
@@ -2147,6 +2198,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
                     accept="image/*" 
                     className="hidden" 
                     onChange={handleShowcaseImageChange}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      ;(e.target as HTMLInputElement).value = ''
+                    }}
                   />
                 </div>
               </div>
@@ -2281,6 +2336,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
                     accept="image/*" 
                     className="hidden" 
                     onChange={handleBannerImageChange}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      ;(e.target as HTMLInputElement).value = ''
+                    }}
                   />
                 </div>
               </div>

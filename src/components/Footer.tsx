@@ -24,7 +24,9 @@ export const Footer: React.FC = () => {
           >
             {shopName}
           </div>
-          
+          <span className="text-[11px] tracking-[0.25em] sm:tracking-[0.32em] text-[#d98f9a] font-light text-right self-end mt-0.5">
+            Hoa xinh Quốc Oai
+          </span>
         </div>
 
         <div className="flex flex-col items-center gap-2 md:flex-row md:items-center md:gap-6">

@@ -70,12 +70,15 @@ export const uploadStorageImage = async (
             .getPublicUrl(filePath)
 
           if (publicUrl) {
+            console.log(`[Storage] Upload thành công lên ${bName}/${filePath}:`, publicUrl)
             return publicUrl
           }
+        } else {
+          console.warn(`[Storage] Bucket ${bName} báo lỗi:`, upErr.message || upErr)
         }
       } catch (err) {
         // Tiếp tục thử bucket hoặc client khác
-        console.warn(`Thử upload bucket ${bName} chưa thành công:`, err)
+        console.warn(`[Storage] Ngoại lệ upload bucket ${bName}:`, err)
       }
     }
   }

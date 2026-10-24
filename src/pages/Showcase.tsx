@@ -6,7 +6,7 @@ import { ChatBubbles } from '../components/ChatBubbles'
 import { ImageLightbox } from '../components/ImageLightbox'
 import { supabase } from '../lib/supabaseClient'
 import { isDemoMode, getLocalShowcases, type ShopShowcase } from '../lib/demoData'
-import { ZoomIn } from 'lucide-react'
+import { ZoomIn, Images } from 'lucide-react'
 
 export const Showcase: React.FC = () => {
   const [showcases, setShowcases] = useState<ShopShowcase[]>([])
@@ -80,8 +80,14 @@ export const Showcase: React.FC = () => {
             Đang tải ảnh...
           </div>
         ) : showcases.length === 0 ? (
-          <div className="py-24 text-center text-stone-400 text-sm">
-            Chưa có hình ảnh nào được tải lên.
+          <div className="py-20 text-center bg-white border border-stone-200 rounded-xl p-8 max-w-md mx-auto shadow-xs">
+            <div className="w-12 h-12 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-3 text-stone-400">
+              <Images size={24} />
+            </div>
+            <p className="text-stone-700 font-medium text-sm mb-1">Chưa có hình ảnh nào được tải lên</p>
+            <p className="text-stone-400 text-xs">
+              Các mẫu hoa lụa chụp thực tế sẽ sớm được cập nhật tại đây!
+            </p>
           </div>
         ) : (
           /* Bố cục Masonry hàng ngang: Phân chia đều vào các cột, cột 4 luôn có ảnh, dồn sát hàng trên */

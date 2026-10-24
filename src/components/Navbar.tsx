@@ -29,10 +29,15 @@ export const Navbar: React.FC = () => {
             e.preventDefault()
             navigateTo('/')
           }}
-          className="flex items-center gap-2.5 font-serif text-2xl md:text-3xl tracking-[0.08em] text-stone-900 hover:opacity-80 transition-opacity"
+          className="flex flex-col justify-center hover:opacity-85 transition-opacity"
         >
-          <span className="font-medium leading-none">{firstName}</span>
-          {lightName && <span className="font-medium leading-none">{lightName}</span>}
+          <div className="flex items-center gap-2 font-serif text-xl sm:text-2xl md:text-3xl tracking-[0.08em] text-stone-900 leading-none">
+            <span className="font-medium">{firstName}</span>
+            {lightName && <span className="font-medium">{lightName}</span>}
+          </div>
+          <span className="text-[10px] sm:text-[11px] tracking-[0.25em] sm:tracking-[0.32em] text-rose-500/80 font-light mt-1.5 leading-none text-right self-end">
+            Hoa xinh Quốc Oai
+          </span>
         </a>
 
         {/* Cụm Action Buttons: Trang chủ, Ảnh thực tế, Góp ý ẩn danh, Giỏ hàng */}
