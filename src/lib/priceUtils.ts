@@ -66,3 +66,29 @@ export const matchPriceFilter = (price: number, filter: PriceFilterType): boolea
 
   return true
 }
+
+/**
+ * Phân tích và chuyển đổi giá trị nhập từ ô input (hỗ trợ định dạng 350000, 350.000, 350,000, 350k, v.v.)
+ * thành số nguyên dương chuẩn lưu vào database
+ */
+export const parsePriceInput = (val: string | number): number => {
+  if (typeof val === 'number') {
+    return isNaN(val) ? 0 : Math.max(0, Math.round(val))
+  }
+  if (!val) return 0
+
+  const str = val.toString().trim()
+  if (!str) return 0
+
+  // Bỏ mọi ký tự không phải số
+  const cleaned = str.replace(/[^\d]/g, '')
+  const num = parseInt(cleaned, 10) || 0
+
+  // Nếu người dùng nhập dạng rút gọn ví dụ 350 hoặc 250 (nghĩa là 350.000đ)
+  if (num > 0 && num < 1000) {
+    return num * 1000
+  }
+
+  return Math.max(0, num)
+}
+

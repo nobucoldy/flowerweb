@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { ShoppingBag, Mail, Images } from 'lucide-react'
+import { Home, ShoppingBag, Mail, Images } from 'lucide-react'
 import { useCartStore } from '../store/useCartStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { navigateTo } from '../lib/navigation'
@@ -35,8 +35,35 @@ export const Navbar: React.FC = () => {
           {lightName && <span className="font-medium leading-none">{lightName}</span>}
         </a>
 
-        {/* Cụm Action Buttons: Ảnh thực tế, Góp ý ẩn danh, Giỏ hàng */}
+        {/* Cụm Action Buttons: Trang chủ, Ảnh thực tế, Góp ý ẩn danh, Giỏ hàng */}
         <div className="flex items-center gap-1.5 sm:gap-2">
+          {/* 0. Icon Ngôi nhà (Trang chủ) */}
+          <div className="relative group">
+            <button
+              onClick={() => {
+                if (window.location.pathname === '/') {
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                } else {
+                  navigateTo('/')
+                }
+              }}
+              className={`p-2.5 rounded-full transition-all duration-200 cursor-pointer flex items-center justify-center ${
+                currentPath === '/' || currentPath === ''
+                  ? 'bg-rose-100/70 text-rose-800 shadow-xs'
+                  : 'text-stone-700 hover:text-stone-950 hover:bg-stone-100/70'
+              }`}
+              aria-label="Trang chủ"
+              title="Trang chủ"
+            >
+              <Home size={20} strokeWidth={1.75} />
+            </button>
+            {/* Tooltip khi đưa chuột vào */}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2.5 py-1 text-[11px] font-medium text-white bg-stone-900/90 backdrop-blur-xs rounded-md shadow-md whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-50">
+              Trang chủ
+              <div className="absolute -top-1 left-1/2 -translate-x-1/2 border-4 border-transparent border-b-stone-900/90" />
+            </div>
+          </div>
+
           {/* 1. Icon Biểu tượng hình ảnh (Xem ảnh thực tế shop upload) */}
           <div className="relative group">
             <button

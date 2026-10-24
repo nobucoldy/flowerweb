@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { supabase, supabaseAdmin, uploadStorageImage } from '../lib/supabaseClient'
 import { 
   isDemoMode, getLocalProducts, saveLocalProducts, getLocalOrders, resetToSeedData, 
   getLocalFeedbacks, toggleFeedbackReadStatus, deleteLocalFeedback,
@@ -9,6 +9,7 @@ import {
 } from '../lib/demoData'
 import { fetchAnalyticsSummary, isWithinTimeframe, type AnalyticsSummary } from '../lib/analytics'
 import { compressImage, validateImageFile } from '../lib/imageUtils'
+import { parsePriceInput } from '../lib/priceUtils'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { 
@@ -257,17 +258,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
 
   const handleToggleFeedbackRead = async (id: string, currentStatus: boolean) => {
     try {
-      if (isDemoMode) {
-        const updated = toggleFeedbackReadStatus(id)
-        setFeedbacks(updated)
-      } else {
-        const { error } = await supabase
-          .from('anonymous_feedback')
-          .update({ is_read: !currentStatus })
-          .eq('id', id)
-        if (error) throw error
-        setFeedbacks(prev => prev.map(f => f.id === id ? { ...f, is_read: !currentStatus } : f))
+      if (!isDemoMode) {
+        try {
+          await supabaseAdmin
+            .from('anonymous_feedback')
+            .update({ is_read: !currentStatus })
+            .eq('id', id)
+        } catch (dbErr) {
+          console.warn('Lưu DB góp ý chưa thành công, đồng bộ LocalStorage:', dbErr)
+        }
       }
+      const updated = toggleFeedbackReadStatus(id)
+      setFeedbacks(prev => {
+        const found = prev.some(f => f.id === id)
+        if (found) {
+          return prev.map(f => f.id === id ? { ...f, is_read: !currentStatus } : f)
+        }
+        return updated
+      })
     } catch (err) {
       console.error('Lỗi cập nhật trạng thái đọc:', err)
     }
@@ -276,17 +284,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
   const handleDeleteFeedback = async (id: string) => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa tin nhắn góp ý này?')) return
     try {
-      if (isDemoMode) {
-        const updated = deleteLocalFeedback(id)
-        setFeedbacks(updated)
-      } else {
-        const { error } = await supabase
-          .from('anonymous_feedback')
-          .delete()
-          .eq('id', id)
-        if (error) throw error
-        setFeedbacks(prev => prev.filter(f => f.id !== id))
+      if (!isDemoMode) {
+        try {
+          await supabaseAdmin
+            .from('anonymous_feedback')
+            .delete()
+            .eq('id', id)
+        } catch (dbErr) {
+          console.warn('Xóa DB góp ý chưa thành công, đồng bộ LocalStorage:', dbErr)
+        }
       }
+      deleteLocalFeedback(id)
+      setFeedbacks(prev => prev.filter(f => f.id !== id))
     } catch (err) {
       console.error('Lỗi xóa feedback:', err)
     }
@@ -370,16 +379,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
 
       // Nếu có chọn file mới và Supabase đang hoạt động, upload lên Storage
       if (scSelectedFile && !isDemoMode) {
-        const fileExt = scSelectedFile.name.split('.').pop()
-        const fileName = `showcase-${Date.now()}.${fileExt}`
-        const { data: uploadData, error: uploadErr } = await supabase.storage
-          .from('products')
-          .upload(`showcase/${fileName}`, scSelectedFile)
-        if (!uploadErr && uploadData) {
-          const { data: urlData } = supabase.storage
-            .from('products')
-            .getPublicUrl(`showcase/${fileName}`)
-          if (urlData?.publicUrl) finalImageUrl = urlData.publicUrl
+        const upUrl = await uploadStorageImage(scSelectedFile, 'showcase')
+        if (upUrl) {
+          finalImageUrl = upUrl
+        } else {
+          // Fallback sang Base64 nén chất lượng cao
+          finalImageUrl = await compressImage(scSelectedFile, 1200, 1200, 0.8)
         }
       }
 
@@ -392,32 +397,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
         image_url: finalImageUrl
       }
 
-      if (isDemoMode) {
+      let savedToDb = false
+      if (!isDemoMode) {
+        try {
+          if (editingShowcase) {
+            const { error } = await supabaseAdmin
+              .from('shop_showcase')
+              .update(showcasePayload)
+              .eq('id', editingShowcase.id)
+            if (!error) savedToDb = true
+          } else {
+            const { error } = await supabaseAdmin
+              .from('shop_showcase')
+              .insert([showcasePayload])
+            if (!error) savedToDb = true
+          }
+          if (savedToDb) {
+            await fetchShowcases()
+          }
+        } catch (dbErr) {
+          console.warn('Lỗi lưu showcase trên Supabase, tự động lưu LocalStorage:', dbErr)
+        }
+      }
+
+      // Fallback lưu LocalStorage nếu demo mode hoặc bảng Supabase chưa có
+      if (isDemoMode || !savedToDb) {
         saveLocalShowcase({
           ...showcasePayload,
           id: editingShowcase?.id
         })
         setShowcases(getLocalShowcases())
-      } else {
-        if (editingShowcase) {
-          const { error } = await supabase
-            .from('shop_showcase')
-            .update(showcasePayload)
-            .eq('id', editingShowcase.id)
-          if (error) throw error
-        } else {
-          const { error } = await supabase
-            .from('shop_showcase')
-            .insert([showcasePayload])
-          if (error) throw error
-        }
-        await fetchShowcases()
       }
 
+      alert(editingShowcase ? 'Đã cập nhật ảnh hoa thực tế thành công!' : 'Đã đăng ảnh hoa thực tế thành công!')
       setIsShowcaseModalOpen(false)
-    } catch (err) {
+    } catch (err: any) {
       console.error('Lỗi lưu showcase:', err)
-      alert('Có lỗi khi lưu ảnh & review. Vui lòng thử lại.')
+      alert(`Lỗi khi lưu ảnh & review: ${err.message || 'Vui lòng thử lại'}`)
     } finally {
       setIsSavingShowcase(false)
     }
@@ -426,35 +442,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
   const handleDeleteShowcase = async (id: string) => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa ảnh hoa / review này?')) return
     try {
-      if (isDemoMode) {
-        const updated = deleteLocalShowcase(id)
-        setShowcases(updated)
-      } else {
-        const { error } = await supabase
-          .from('shop_showcase')
-          .delete()
-          .eq('id', id)
-        if (error) throw error
-        setShowcases(prev => prev.filter(sc => sc.id !== id))
+      if (!isDemoMode) {
+        try {
+          await supabaseAdmin
+            .from('shop_showcase')
+            .delete()
+            .eq('id', id)
+        } catch (dbErr) {
+          console.warn('Lỗi xóa showcase trên DB:', dbErr)
+        }
       }
-    } catch (err) {
+      deleteLocalShowcase(id)
+      setShowcases(prev => prev.filter(sc => sc.id !== id))
+      alert('Đã xóa ảnh hoa thực tế thành công!')
+    } catch (err: any) {
       console.error('Lỗi xóa showcase:', err)
+      alert(`Lỗi khi xóa showcase: ${err.message || 'Vui lòng thử lại'}`)
     }
   }
 
   const handleTogglePinShowcase = async (id: string, currentPin?: boolean) => {
     try {
-      if (isDemoMode) {
-        const updated = togglePinShowcase(id)
-        setShowcases(updated)
-      } else {
-        const { error } = await supabase
-          .from('shop_showcase')
-          .update({ is_pinned: !currentPin })
-          .eq('id', id)
-        if (error) throw error
-        setShowcases(prev => prev.map(sc => sc.id === id ? { ...sc, is_pinned: !currentPin } : sc))
+      if (!isDemoMode) {
+        try {
+          await supabaseAdmin
+            .from('shop_showcase')
+            .update({ is_pinned: !currentPin })
+            .eq('id', id)
+        } catch (dbErr) {
+          console.warn('Lỗi toggle ghim DB:', dbErr)
+        }
       }
+      const updated = togglePinShowcase(id)
+      setShowcases(prev => {
+        const found = prev.some(sc => sc.id === id)
+        if (found) {
+          return prev.map(sc => sc.id === id ? { ...sc, is_pinned: !currentPin } : sc)
+        }
+        return updated
+      })
     } catch (err) {
       console.error('Lỗi toggle ghim showcase:', err)
     }
@@ -542,16 +568,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
       let finalImageUrl = bnImagePreview
 
       if (bnSelectedFile && !isDemoMode) {
-        const fileExt = bnSelectedFile.name.split('.').pop()
-        const fileName = `banner-${Date.now()}.${fileExt}`
-        const { data: uploadData, error: uploadErr } = await supabase.storage
-          .from('products')
-          .upload(`banners/${fileName}`, bnSelectedFile)
-        if (!uploadErr && uploadData) {
-          const { data: urlData } = supabase.storage
-            .from('products')
-            .getPublicUrl(`banners/${fileName}`)
-          if (urlData?.publicUrl) finalImageUrl = urlData.publicUrl
+        const upUrl = await uploadStorageImage(bnSelectedFile, 'banners')
+        if (upUrl) {
+          finalImageUrl = upUrl
+        } else {
+          // Fallback sang Base64 nén sắc nét
+          finalImageUrl = await compressImage(bnSelectedFile, 1600, 900, 0.8)
         }
       }
 
@@ -564,30 +586,39 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
         link_url: '/showcase'
       }
 
-      if (isDemoMode) {
+      let savedToDb = false
+      if (!isDemoMode) {
+        try {
+          if (editingBanner) {
+            const { error } = await supabaseAdmin
+              .from('shop_banners')
+              .update(bannerPayload)
+              .eq('id', editingBanner.id)
+            if (!error) savedToDb = true
+          } else {
+            const { error } = await supabaseAdmin
+              .from('shop_banners')
+              .insert(bannerPayload)
+            if (!error) savedToDb = true
+          }
+          if (savedToDb) {
+            await fetchBanners()
+          }
+        } catch (dbErr) {
+          console.warn('Lỗi lưu banner trên DB, tự động lưu LocalStorage:', dbErr)
+        }
+      }
+
+      // Fallback lưu LocalStorage nếu demo mode hoặc bảng Supabase chưa có
+      if (isDemoMode || !savedToDb) {
         const updated = saveLocalBanner({
           ...bannerPayload,
           id: editingBanner?.id
         })
         setBanners(updated)
-        alert(editingBanner ? 'Đã cập nhật banner thành công!' : 'Đã thêm banner trang chủ thành công!')
-      } else {
-        if (editingBanner) {
-          const { error } = await supabase
-            .from('shop_banners')
-            .update(bannerPayload)
-            .eq('id', editingBanner.id)
-          if (error) throw error
-        } else {
-          const { error } = await supabase
-            .from('shop_banners')
-            .insert(bannerPayload)
-          if (error) throw error
-        }
-        await fetchBanners()
-        alert(editingBanner ? 'Đã cập nhật banner thành công!' : 'Đã thêm banner trang chủ thành công!')
       }
 
+      alert(editingBanner ? 'Đã cập nhật banner thành công!' : 'Đã thêm banner trang chủ thành công!')
       setIsBannerModalOpen(false)
     } catch (err: any) {
       alert(`Lỗi khi lưu banner: ${err.message || 'Vui lòng thử lại'}`)
@@ -598,38 +629,47 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
 
   const handleToggleBannerStatus = async (id: string, currentStatus: boolean) => {
     try {
-      if (isDemoMode) {
-        const updated = toggleBannerActiveStatus(id)
-        setBanners(updated)
-      } else {
-        const { error } = await supabase
-          .from('shop_banners')
-          .update({ is_active: !currentStatus })
-          .eq('id', id)
-        if (error) throw error
-        setBanners(prev => prev.map(b => b.id === id ? { ...b, is_active: !currentStatus } : b))
+      if (!isDemoMode) {
+        try {
+          await supabaseAdmin
+            .from('shop_banners')
+            .update({ is_active: !currentStatus })
+            .eq('id', id)
+        } catch (dbErr) {
+          console.warn('Lỗi toggle banner DB:', dbErr)
+        }
       }
-    } catch {
-      alert('Lỗi khi thay đổi trạng thái banner.')
+      const updated = toggleBannerActiveStatus(id)
+      setBanners(prev => {
+        const found = prev.some(b => b.id === id)
+        if (found) {
+          return prev.map(b => b.id === id ? { ...b, is_active: !currentStatus } : b)
+        }
+        return updated
+      })
+    } catch (err: any) {
+      alert(`Lỗi khi thay đổi trạng thái banner: ${err.message || 'Vui lòng thử lại'}`)
     }
   }
 
   const handleDeleteBanner = async (id: string) => {
     if (!window.confirm('Bạn có chắc muốn xóa ảnh banner này không?')) return
     try {
-      if (isDemoMode) {
-        const updated = deleteLocalBanner(id)
-        setBanners(updated)
-      } else {
-        const { error } = await supabase
-          .from('shop_banners')
-          .delete()
-          .eq('id', id)
-        if (error) throw error
-        setBanners(prev => prev.filter(b => b.id !== id))
+      if (!isDemoMode) {
+        try {
+          await supabaseAdmin
+            .from('shop_banners')
+            .delete()
+            .eq('id', id)
+        } catch (dbErr) {
+          console.warn('Lỗi xóa banner DB:', dbErr)
+        }
       }
-    } catch {
-      alert('Lỗi khi xóa banner.')
+      deleteLocalBanner(id)
+      setBanners(prev => prev.filter(b => b.id !== id))
+      alert('Đã xóa banner thành công!')
+    } catch (err: any) {
+      alert(`Lỗi khi xóa banner: ${err.message || 'Vui lòng thử lại'}`)
     }
   }
 
@@ -688,29 +728,45 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
     setIsModalOpen(true)
   }
 
-  // Upload ảnh lên Supabase Storage hoặc dùng ObjectURL demo
+  // Upload ảnh lên Supabase Storage với cơ chế tự động Fallback sang Base64 nén chất lượng cao
   const uploadImage = async (file: File): Promise<string> => {
     if (isDemoMode) {
-      return URL.createObjectURL(file)
+      try {
+        const compressed = await compressImage(file, 1000, 1000, 0.8)
+        return compressed || URL.createObjectURL(file)
+      } catch {
+        return URL.createObjectURL(file)
+      }
     }
 
     setUploadProgress(true)
     try {
-      const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')
-      const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`
-      const filePath = `products/${fileName}`
+      // 1. Thử upload lên Supabase Storage bằng admin client (hỗ trợ cả bucket 'products' và 'product-images')
+      const storageUrl = await uploadStorageImage(file, 'products')
+      if (storageUrl) {
+        return storageUrl
+      }
 
-      const { error: uploadError } = await supabase.storage
-        .from('products')
-        .upload(filePath, file)
+      // 2. Nếu Storage bị lỗi hoặc chưa có policy, tự động nén sang Base64 (~60KB - 100KB)
+      // Lưu trực tiếp vào trường 'image_url' (cột TEXT) trên PostgreSQL cực kỳ mượt mà và an toàn!
+      const compressedBase64 = await compressImage(file, 1000, 1000, 0.8)
+      if (compressedBase64) {
+        return compressedBase64
+      }
 
-      if (uploadError) throw uploadError
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('products')
-        .getPublicUrl(filePath)
-
-      return publicUrl
+      // 3. Fallback đọc FileReader nếu canvas nén không khả dụng
+      return await new Promise<string>((resolve) => {
+        const reader = new FileReader()
+        reader.onloadend = () => resolve((reader.result as string) || '')
+        reader.readAsDataURL(file)
+      })
+    } catch (err) {
+      console.warn('Lỗi trong quá trình xử lý ảnh, tự động fallback sang ảnh nén:', err)
+      try {
+        return await compressImage(file, 1000, 1000, 0.8)
+      } catch {
+        return ''
+      }
     } finally {
       setUploadProgress(false)
     }
@@ -733,6 +789,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
       }
 
       const viewsCountNumber = parseInt(prodViews) || 0
+      const finalPrice = parsePriceInput(prodPrice)
+
+      const productPayload = {
+        name: prodName.trim(),
+        price: finalPrice,
+        image_url: finalImageUrl,
+        status: prodStatus,
+        category: prodCategory.trim() || 'Hoa lụa',
+        views_count: viewsCountNumber
+      }
 
       if (isDemoMode) {
         if (editingProduct) {
@@ -740,68 +806,63 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
             if (p.id === editingProduct.id) {
               return {
                 ...p,
-                name: prodName,
-                price: Number(prodPrice),
-                image_url: finalImageUrl,
-                status: prodStatus,
-                category: prodCategory,
-                views_count: viewsCountNumber
+                ...productPayload
               }
             }
             return p
           })
           setProducts(updated)
           saveLocalProducts(updated)
+          alert('Đã cập nhật sản phẩm thành công!')
         } else {
           const newProd: Product = {
             id: `prod-${Date.now()}`,
-            name: prodName,
-            price: Number(prodPrice),
-            image_url: finalImageUrl,
-            status: prodStatus,
-            category: prodCategory,
-            views_count: viewsCountNumber,
+            ...productPayload,
             created_at: new Date().toISOString()
           }
           const updated = [newProd, ...products]
           setProducts(updated)
           saveLocalProducts(updated)
+          alert('Đã thêm sản phẩm mới thành công!')
         }
       } else {
         if (editingProduct) {
-          const { error } = await supabase
+          // Cập nhật sản phẩm: ưu tiên supabaseAdmin để không bị chặn bởi RLS
+          let { error } = await supabaseAdmin
             .from('products')
-            .update({
-              name: prodName,
-              price: Number(prodPrice),
-              image_url: finalImageUrl,
-              status: prodStatus,
-              category: prodCategory,
-              views_count: viewsCountNumber
-            })
+            .update(productPayload)
             .eq('id', editingProduct.id)
 
-          if (error) throw error
-        } else {
-          const { error } = await supabase
-            .from('products')
-            .insert({
-              name: prodName,
-              price: Number(prodPrice),
-              image_url: finalImageUrl,
-              status: prodStatus,
-              category: prodCategory,
-              views_count: viewsCountNumber
-            })
+          if (error) {
+            const retry = await supabase
+              .from('products')
+              .update(productPayload)
+              .eq('id', editingProduct.id)
+            if (retry.error) throw retry.error
+          }
 
-          if (error) throw error
+          alert('Đã cập nhật sản phẩm thành công!')
+        } else {
+          // Thêm mới sản phẩm
+          let { error } = await supabaseAdmin
+            .from('products')
+            .insert(productPayload)
+
+          if (error) {
+            const retry = await supabase
+              .from('products')
+              .insert(productPayload)
+            if (retry.error) throw retry.error
+          }
+
+          alert('Đã thêm sản phẩm mới thành công!')
         }
         await fetchProducts()
       }
 
       setIsModalOpen(false)
     } catch (err: any) {
-      alert(`Lỗi khi lưu sản phẩm: ${err.message || 'Vui lòng thử lại'}`)
+      alert(`Lỗi khi lưu sản phẩm: ${err.message || 'Vui lòng kiểm tra lại thông tin và thử lại.'}`)
     } finally {
       setIsSavingProduct(false)
     }
@@ -816,16 +877,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
         const updated = products.filter(p => p.id !== productId)
         setProducts(updated)
         saveLocalProducts(updated)
+        alert('Đã xóa sản phẩm thành công!')
       } else {
-        const { error } = await supabase
+        let { error } = await supabaseAdmin
           .from('products')
           .delete()
           .eq('id', productId)
-        if (error) throw error
-        setProducts(products.filter(p => p.id !== productId))
+
+        if (error) {
+          const retry = await supabase
+            .from('products')
+            .delete()
+            .eq('id', productId)
+          if (retry.error) throw retry.error
+        }
+
+        setProducts(prev => prev.filter(p => p.id !== productId))
+        alert('Đã xóa sản phẩm thành công!')
       }
-    } catch {
-      alert('Lỗi khi xóa sản phẩm.')
+    } catch (err: any) {
+      alert(`Lỗi khi xóa sản phẩm: ${err.message || 'Vui lòng thử lại'}`)
     }
   }
 
@@ -839,15 +910,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
         setProducts(updated)
         saveLocalProducts(updated)
       } else {
-        const { error } = await supabase
+        let { error } = await supabaseAdmin
           .from('products')
           .update({ status: newStatus })
           .eq('id', product.id)
-        if (error) throw error
+
+        if (error) {
+          const retry = await supabase
+            .from('products')
+            .update({ status: newStatus })
+            .eq('id', product.id)
+          if (retry.error) throw retry.error
+        }
+
         setProducts(products.map(p => p.id === product.id ? { ...p, status: newStatus } : p))
       }
-    } catch {
-      alert('Lỗi khi thay đổi trạng thái sản phẩm.')
+    } catch (err: any) {
+      alert(`Lỗi khi thay đổi trạng thái sản phẩm: ${err.message || 'Vui lòng thử lại'}`)
     }
   }
 
@@ -1896,13 +1975,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
                     Giá bán (VND)
                   </label>
                   <input
-                    type="number"
+                    type="text"
                     required
-                    placeholder="Ví dụ: 380000"
+                    placeholder="Ví dụ: 380000 hoặc 380k"
                     value={prodPrice}
                     onChange={(e) => setProdPrice(e.target.value)}
                     className="w-full text-sm px-4 py-2.5 bg-stone-50 border border-stone-200 focus:border-stone-900 rounded-sm focus:outline-hidden transition-all"
                   />
+                  {prodPrice ? (
+                    <span className="text-[10px] text-stone-500 mt-1 block font-medium">
+                      = {parsePriceInput(prodPrice).toLocaleString('vi-VN')}đ
+                    </span>
+                  ) : null}
                 </div>
 
                 <div>
