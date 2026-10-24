@@ -195,16 +195,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  const pinnedAdminShowcases = useMemo(() => showcases.filter(s => s.is_pinned), [showcases])
-  const regularAdminShowcases = useMemo(() => showcases.filter(s => !s.is_pinned), [showcases])
-
   const showcaseColumns = useMemo(() => {
     const cols: ShopShowcase[][] = Array.from({ length: showcaseColCount }, () => [])
-    regularAdminShowcases.forEach((item, index) => {
+    showcases.forEach((item, index) => {
       cols[index % showcaseColCount].push(item)
     })
     return cols
-  }, [regularAdminShowcases, showcaseColCount])
+  }, [showcases, showcaseColCount])
 
   const fetchProducts = async () => {
     setLoadingProducts(true)
@@ -527,10 +524,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
             throw retry.error
           }
         }
-        await fetchShowcases()
-      } else {
-        togglePinShowcase(id)
       }
+      togglePinShowcase(id)
     } catch (err: any) {
       console.error('Lỗi toggle ghim showcase:', err)
       alert(`Không thể thay đổi trạng thái ghim: ${err.message || 'Vui lòng thử lại'}`)
@@ -1815,153 +1810,74 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
                 </button>
               </div>
             ) : (
-              <div className="space-y-8">
-                {/* 1. KHỐI ẢNH ĐANG ĐƯỢC GHIM LÊN ĐẦU */}
-                {pinnedAdminShowcases.length > 0 && (
-                  <div className="bg-rose-50/50 border-2 border-rose-200/80 rounded-xl p-4 sm:p-5">
-                    <div className="flex items-center gap-2 mb-4">
-                      <span className="flex items-center justify-center w-6 h-6 rounded-full bg-rose-600 text-white">
-                        <Pin size={12} className="rotate-45" />
-                      </span>
-                      <div>
-                        <h3 className="text-xs font-bold uppercase tracking-wider text-rose-950">
-                          Ảnh đang được ghim lên đầu ({pinnedAdminShowcases.length})
-                        </h3>
-                        <p className="text-[11px] text-rose-700/80">
-                          Các ảnh này luôn xuất hiện ở vị trí trang trọng đầu tiên trên trang xem ảnh của khách.
-                        </p>
-                      </div>
-                    </div>
+              <div className="flex gap-4 sm:gap-6 items-start">
+                {showcaseColumns.map((col, colIdx) => (
+                  <div key={colIdx} className="flex-1 flex flex-col gap-6 min-w-0">
+                    {col.map((sc) => (
+                      <div key={sc.id} className="bg-white border border-stone-200 rounded-xl overflow-hidden shadow-xs p-3.5 flex flex-col w-full">
+                        {/* Mô tả nhỏ ở phía trên ảnh */}
+                        <div className="mb-2">
+                          <p className="font-medium text-xs text-stone-850 leading-snug">
+                            {sc.title || '(Chưa có mô tả)'}
+                          </p>
+                        </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                      {pinnedAdminShowcases.map((sc) => (
-                        <div key={sc.id} className="bg-white border border-rose-200 rounded-xl overflow-hidden shadow-xs p-3.5 flex flex-col w-full">
-                          <div className="mb-2">
-                            <p className="font-semibold text-xs text-stone-900 leading-snug truncate" title={sc.title}>
-                              {sc.title || '(Chưa có mô tả)'}
-                            </p>
-                          </div>
-
-                          <div className="relative bg-stone-100 rounded-lg overflow-hidden border border-stone-100">
-                            <img 
-                              src={sc.image_url} 
-                              alt={sc.title} 
-                              className="w-full h-auto block object-contain mx-auto max-h-60" 
-                            />
+                        {/* Ảnh hiển thị đúng tỉ lệ thật, dồn sát hàng trên */}
+                        <div className="relative bg-stone-100 rounded-lg overflow-hidden border border-stone-100">
+                          <img 
+                            src={sc.image_url} 
+                            alt={sc.title} 
+                            className="w-full h-auto block object-contain mx-auto" 
+                          />
+                          {sc.is_pinned && (
                             <span className="absolute top-2 left-2 bg-rose-600 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
-                              <Pin size={10} className="rotate-45" /> Đang ghim
+                              <Pin size={10} /> Ghim đầu
                             </span>
-                          </div>
+                          )}
+                        </div>
 
-                          <div className="pt-3 border-t border-stone-100 flex items-center justify-between mt-3 text-xs">
+                        {/* Thanh thao tác quản lý */}
+                        <div className="pt-3 border-t border-stone-100 flex items-center justify-between mt-3 text-xs">
+                          <button
+                            disabled={pinningShowcaseId === sc.id}
+                            onClick={() => handleTogglePinShowcase(sc.id, sc.is_pinned)}
+                            className={`flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors disabled:opacity-60 ${
+                              sc.is_pinned
+                                ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                                : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                            }`}
+                          >
+                            {pinningShowcaseId === sc.id ? (
+                              <Loader2 size={12} className="animate-spin text-stone-600" />
+                            ) : sc.is_pinned ? (
+                              <PinOff size={12} />
+                            ) : (
+                              <Pin size={12} />
+                            )}
+                            {sc.is_pinned ? 'Bỏ ghim' : 'Ghim'}
+                          </button>
+
+                          <div className="flex items-center gap-2">
                             <button
-                              disabled={pinningShowcaseId === sc.id}
-                              onClick={() => handleTogglePinShowcase(sc.id, sc.is_pinned)}
-                              className="flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-100 disabled:opacity-60"
+                              onClick={() => handleOpenShowcaseModal(sc)}
+                              className="p-1.5 text-stone-500 hover:text-stone-900 rounded cursor-pointer"
+                              title="Sửa ảnh / mô tả"
                             >
-                              {pinningShowcaseId === sc.id ? (
-                                <Loader2 size={12} className="animate-spin text-stone-600" />
-                              ) : (
-                                <PinOff size={12} />
-                              )}
-                              Bỏ ghim
+                              <Edit size={14} />
                             </button>
-
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => handleOpenShowcaseModal(sc)}
-                                className="p-1.5 text-stone-500 hover:text-stone-900 rounded cursor-pointer"
-                                title="Sửa ảnh / mô tả"
-                              >
-                                <Edit size={14} />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteShowcase(sc.id)}
-                                className="p-1.5 text-stone-400 hover:text-rose-600 rounded cursor-pointer"
-                                title="Xóa ảnh"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => handleDeleteShowcase(sc.id)}
+                              className="p-1.5 text-stone-400 hover:text-rose-600 rounded cursor-pointer"
+                              title="Xóa ảnh"
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* 2. KHỐI CÁC ẢNH HOA THỰC TẾ CÒN LẠI */}
-                <div>
-                  {pinnedAdminShowcases.length > 0 && (
-                    <div className="flex items-center gap-2 mb-4">
-                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-stone-100 text-stone-600">
-                        <Images size={12} />
-                      </span>
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-stone-600">
-                        Các ảnh hoa thực tế khác ({regularAdminShowcases.length})
-                      </h4>
-                    </div>
-                  )}
-
-                  <div className="flex gap-4 sm:gap-6 items-start">
-                    {showcaseColumns.map((col, colIdx) => (
-                      <div key={colIdx} className="flex-1 flex flex-col gap-6 min-w-0">
-                        {col.map((sc) => (
-                          <div key={sc.id} className="bg-white border border-stone-200 rounded-xl overflow-hidden shadow-xs p-3.5 flex flex-col w-full">
-                            {/* Mô tả nhỏ ở phía trên ảnh */}
-                            <div className="mb-2">
-                              <p className="font-medium text-xs text-stone-850 leading-snug">
-                                {sc.title || '(Chưa có mô tả)'}
-                              </p>
-                            </div>
-
-                            {/* Ảnh hiển thị đúng tỉ lệ thật, dồn sát hàng trên */}
-                            <div className="relative bg-stone-100 rounded-lg overflow-hidden border border-stone-100">
-                              <img 
-                                src={sc.image_url} 
-                                alt={sc.title} 
-                                className="w-full h-auto block object-contain mx-auto" 
-                              />
-                            </div>
-
-                            {/* Thanh thao tác quản lý */}
-                            <div className="pt-3 border-t border-stone-100 flex items-center justify-between mt-3 text-xs">
-                              <button
-                                disabled={pinningShowcaseId === sc.id}
-                                onClick={() => handleTogglePinShowcase(sc.id, sc.is_pinned)}
-                                className="flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium cursor-pointer transition-colors bg-stone-100 text-stone-600 hover:bg-stone-200 disabled:opacity-60"
-                              >
-                                {pinningShowcaseId === sc.id ? (
-                                  <Loader2 size={12} className="animate-spin text-stone-600" />
-                                ) : (
-                                  <Pin size={12} />
-                                )}
-                                Ghim lên đầu
-                              </button>
-
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => handleOpenShowcaseModal(sc)}
-                                  className="p-1.5 text-stone-500 hover:text-stone-900 rounded cursor-pointer"
-                                  title="Sửa ảnh / mô tả"
-                                >
-                                  <Edit size={14} />
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteShowcase(sc.id)}
-                                  className="p-1.5 text-stone-400 hover:text-rose-600 rounded cursor-pointer"
-                                  title="Xóa ảnh"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
                       </div>
                     ))}
                   </div>
-                </div>
+                ))}
               </div>
             )}
           </div>
