@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase, supabaseAdmin, uploadStorageImage } from '../lib/supabaseClient'
 import { 
-  isDemoMode, getLocalProducts, saveLocalProducts, getLocalOrders, resetToSeedData, 
+  isDemoMode, getLocalProducts, saveLocalProducts, saveLocalProduct, toggleProductStatusLocal, deleteLocalProduct,
+  getLocalOrders, resetToSeedData, 
   getLocalFeedbacks, toggleFeedbackReadStatus, deleteLocalFeedback,
   getLocalShowcases, saveLocalShowcase, togglePinShowcase, deleteLocalShowcase,
   getLocalBanners, saveLocalBanner, toggleBannerActiveStatus, deleteLocalBanner,
@@ -26,10 +27,10 @@ interface Product {
   name: string
   price: number
   image_url: string
-  status: 'active' | 'inactive'
+  status?: 'active' | 'inactive'
   views_count?: number
   category?: string
-  created_at: string
+  created_at?: string
 }
 
 interface DraftOrder {
@@ -128,6 +129,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [isSavingProduct, setIsSavingProduct] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(false)
+  const [togglingProductId, setTogglingProductId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Trạng thái tìm kiếm & sắp xếp sản phẩm
@@ -216,10 +218,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
           .select('*')
           .order('created_at', { ascending: false })
         if (error) throw error
-        if (data) setProducts(data as Product[])
+        if (data && data.length > 0) {
+          setProducts(data as Product[])
+          saveLocalProducts(data as Product[])
+        } else {
+          const local = getLocalProducts() as Product[]
+          setProducts(local)
+        }
       }
-    } catch {
-      console.error('Lỗi khi tải sản phẩm')
+    } catch (err) {
+      console.warn('Lỗi khi tải sản phẩm từ Supabase, fallback sang dữ liệu bộ nhớ máy:', err)
+      const local = getLocalProducts() as Product[]
+      setProducts(local)
     } finally {
       setLoadingProducts(false)
     }
@@ -524,6 +534,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
             throw retry.error
           }
         }
+        await fetchShowcases()
       }
       togglePinShowcase(id)
     } catch (err: any) {
@@ -846,6 +857,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
   // Lưu sản phẩm (Thêm mới hoặc Cập nhật)
   const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!prodName.trim()) {
+      alert('Vui lòng nhập tên hoặc mã hoa.')
+      return
+    }
+
     setIsSavingProduct(true)
 
     try {
@@ -859,7 +875,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
         finalImageUrl = 'https://images.unsplash.com/photo-1561181286-d3fee7d55364?q=80&w=600&auto=format&fit=crop'
       }
 
-      const viewsCountNumber = parseInt(prodViews) || 0
+      const viewsCountNumber = Math.max(0, parseInt(prodViews) || 0)
       const finalPrice = parsePriceInput(prodPrice)
 
       const productPayload = {
@@ -871,68 +887,91 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
         views_count: viewsCountNumber
       }
 
-      if (isDemoMode) {
-        if (editingProduct) {
-          const updated = products.map((p) => {
-            if (p.id === editingProduct.id) {
-              return {
-                ...p,
-                ...productPayload
-              }
-            }
-            return p
-          })
-          setProducts(updated)
-          saveLocalProducts(updated)
-          alert('Đã cập nhật sản phẩm thành công!')
-        } else {
-          const newProd: Product = {
-            id: `prod-${Date.now()}`,
-            ...productPayload,
-            created_at: new Date().toISOString()
-          }
-          const updated = [newProd, ...products]
-          setProducts(updated)
-          saveLocalProducts(updated)
-          alert('Đã thêm sản phẩm mới thành công!')
-        }
-      } else {
-        if (editingProduct) {
-          // Cập nhật sản phẩm: ưu tiên supabaseAdmin để không bị chặn bởi RLS
-          let { error } = await supabaseAdmin
-            .from('products')
-            .update(productPayload)
-            .eq('id', editingProduct.id)
+      let savedToDb = false
+      let dbProduct: Product | null = null
 
-          if (error) {
-            const retry = await supabase
+      if (!isDemoMode) {
+        try {
+          if (editingProduct) {
+            // Cập nhật sản phẩm: thử supabaseAdmin (service key), nếu không được thì thử supabase (authenticated user)
+            let { data, error } = await supabaseAdmin
               .from('products')
               .update(productPayload)
               .eq('id', editingProduct.id)
-            if (retry.error) throw retry.error
-          }
+              .select()
 
-          alert('Đã cập nhật sản phẩm thành công!')
-        } else {
-          // Thêm mới sản phẩm
-          let { error } = await supabaseAdmin
-            .from('products')
-            .insert(productPayload)
-
-          if (error) {
-            const retry = await supabase
+            if (!error && data && data.length > 0) {
+              savedToDb = true
+              dbProduct = data[0] as Product
+            } else {
+              const retry = await supabase
+                .from('products')
+                .update(productPayload)
+                .eq('id', editingProduct.id)
+                .select()
+              if (!retry.error && retry.data && retry.data.length > 0) {
+                savedToDb = true
+                dbProduct = retry.data[0] as Product
+              } else if (retry.error) {
+                console.warn('Lỗi update sản phẩm trên Supabase:', retry.error)
+              }
+            }
+          } else {
+            // Thêm mới sản phẩm
+            let { data, error } = await supabaseAdmin
               .from('products')
               .insert(productPayload)
-            if (retry.error) throw retry.error
+              .select()
+
+            if (!error && data && data.length > 0) {
+              savedToDb = true
+              dbProduct = data[0] as Product
+            } else {
+              const retry = await supabase
+                .from('products')
+                .insert(productPayload)
+                .select()
+              if (!retry.error && retry.data && retry.data.length > 0) {
+                savedToDb = true
+                dbProduct = retry.data[0] as Product
+              } else if (retry.error) {
+                console.warn('Lỗi insert sản phẩm trên Supabase:', retry.error)
+              }
+            }
           }
 
-          alert('Đã thêm sản phẩm mới thành công!')
+          if (savedToDb) {
+            await fetchProducts()
+          }
+        } catch (dbErr) {
+          console.warn('Lỗi kết nối Supabase khi lưu sản phẩm, đồng bộ LocalStorage:', dbErr)
         }
-        await fetchProducts()
+      }
+
+      // Luôn cập nhật LocalStorage và State để dữ liệu hiển thị tức thì và không bị mất
+      if (editingProduct) {
+        const updatedItem = saveLocalProduct({
+          ...editingProduct,
+          ...productPayload,
+          ...(dbProduct || {})
+        })
+        setProducts(prev => prev.map(p => p.id === editingProduct.id ? updatedItem : p))
+        alert('Đã cập nhật sản phẩm thành công!')
+      } else {
+        const newItem = saveLocalProduct(dbProduct || {
+          ...productPayload,
+          id: `prod-${Date.now()}`
+        })
+        setProducts(prev => {
+          const exists = prev.some(p => p.id === newItem.id)
+          return exists ? prev : [newItem, ...prev]
+        })
+        alert('Đã thêm sản phẩm mới thành công!')
       }
 
       setIsModalOpen(false)
     } catch (err: any) {
+      console.error('Lỗi khi lưu sản phẩm:', err)
       alert(`Lỗi khi lưu sản phẩm: ${err.message || 'Vui lòng kiểm tra lại thông tin và thử lại.'}`)
     } finally {
       setIsSavingProduct(false)
@@ -941,63 +980,93 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
 
   // Xóa sản phẩm
   const handleDeleteProduct = async (productId: string) => {
-    if (!window.confirm('Bạn có chắc muốn xóa sản phẩm này?')) return
+    if (!window.confirm('Bạn có chắc muốn xóa sản phẩm này không?')) return
 
     try {
-      if (isDemoMode) {
-        const updated = products.filter(p => p.id !== productId)
-        setProducts(updated)
-        saveLocalProducts(updated)
-        alert('Đã xóa sản phẩm thành công!')
-      } else {
-        let { error } = await supabaseAdmin
-          .from('products')
-          .delete()
-          .eq('id', productId)
-
-        if (error) {
-          const retry = await supabase
+      if (!isDemoMode) {
+        try {
+          let { data, error } = await supabaseAdmin
             .from('products')
             .delete()
             .eq('id', productId)
-          if (retry.error) throw retry.error
-        }
+            .select()
 
-        setProducts(prev => prev.filter(p => p.id !== productId))
-        alert('Đã xóa sản phẩm thành công!')
+          if (error || !data || data.length === 0) {
+            const retry = await supabase
+              .from('products')
+              .delete()
+              .eq('id', productId)
+              .select()
+            if (retry.error) {
+              console.warn('Lỗi xóa sản phẩm DB:', retry.error)
+            }
+          }
+        } catch (dbErr) {
+          console.warn('Lỗi xóa sản phẩm trên Supabase:', dbErr)
+        }
       }
+
+      deleteLocalProduct(productId)
+      setProducts(prev => prev.filter(p => p.id !== productId))
+      alert('Đã xóa sản phẩm thành công!')
     } catch (err: any) {
+      console.error('Lỗi khi xóa sản phẩm:', err)
       alert(`Lỗi khi xóa sản phẩm: ${err.message || 'Vui lòng thử lại'}`)
     }
   }
 
   // Bật/tắt trạng thái hiển thị
   const toggleProductStatus = async (product: Product) => {
+    if (togglingProductId === product.id) return
     const currentStatus = (product.status || 'active') === 'active' ? 'active' : 'inactive'
     const newStatus: 'active' | 'inactive' = currentStatus === 'active' ? 'inactive' : 'active'
-    try {
-      if (isDemoMode) {
-        const updated = products.map(p => p.id === product.id ? { ...p, status: newStatus } : p)
-        setProducts(updated)
-        saveLocalProducts(updated)
-      } else {
-        let { error } = await supabaseAdmin
-          .from('products')
-          .update({ status: newStatus })
-          .eq('id', product.id)
 
-        if (error) {
-          const retry = await supabase
+    setTogglingProductId(product.id)
+
+    // Optimistic UI: cập nhật giao diện ngay lập tức
+    setProducts(prev => prev.map(p => p.id === product.id ? { ...p, status: newStatus } : p))
+    toggleProductStatusLocal(product.id, newStatus)
+
+    try {
+      if (!isDemoMode) {
+        let updatedDb = false
+        try {
+          let { data, error } = await supabaseAdmin
             .from('products')
             .update({ status: newStatus })
             .eq('id', product.id)
-          if (retry.error) throw retry.error
+            .select()
+
+          if (!error && data && data.length > 0) {
+            updatedDb = true
+          } else {
+            const retry = await supabase
+              .from('products')
+              .update({ status: newStatus })
+              .eq('id', product.id)
+              .select()
+            if (!retry.error && retry.data && retry.data.length > 0) {
+              updatedDb = true
+            } else if (retry.error) {
+              console.warn('Lỗi toggle status DB:', retry.error)
+            }
+          }
+        } catch (dbErr) {
+          console.warn('Lỗi toggle status sản phẩm trên DB:', dbErr)
         }
 
-        setProducts(products.map(p => p.id === product.id ? { ...p, status: newStatus } : p))
+        if (updatedDb) {
+          await fetchProducts()
+        }
       }
     } catch (err: any) {
-      alert(`Lỗi khi thay đổi trạng thái sản phẩm: ${err.message || 'Vui lòng thử lại'}`)
+      console.error('Lỗi khi thay đổi trạng thái sản phẩm:', err)
+      alert(`Không thể thay đổi trạng thái sản phẩm: ${err.message || 'Vui lòng thử lại'}`)
+      // Rollback nếu thất bại
+      setProducts(prev => prev.map(p => p.id === product.id ? { ...p, status: currentStatus } : p))
+      toggleProductStatusLocal(product.id, currentStatus)
+    } finally {
+      setTogglingProductId(null)
     }
   }
 
@@ -1039,7 +1108,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
       if (sortBy === 'views_desc') return (b.views_count || 0) - (a.views_count || 0)
       if (sortBy === 'price_desc') return b.price - a.price
       if (sortBy === 'price_asc') return a.price - b.price
-      return new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0
+      return dateB - dateA
     })
 
   // Đơn hàng được lọc theo mốc thời gian
@@ -1405,17 +1476,25 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
                           <td className="px-6 py-3">
                             {(() => {
                               const isActive = (p.status || 'active') === 'active'
+                              const isToggling = togglingProductId === p.id
                               return (
                                 <button
                                   onClick={() => toggleProductStatus(p)}
+                                  disabled={isToggling}
                                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full font-semibold text-[10px] tracking-wider uppercase cursor-pointer transition-all ${
+                                    isToggling ? 'opacity-60 cursor-wait' : ''
+                                  } ${
                                     isActive
                                       ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/70 hover:bg-emerald-100'
                                       : 'bg-rose-50 text-rose-700 border border-rose-200/70 hover:bg-rose-100'
                                   }`}
                                   title={isActive ? 'Nhấn để ẩn sản phẩm khỏi cửa hàng' : 'Nhấn để hiển thị lại sản phẩm'}
                                 >
-                                  {isActive ? (
+                                  {isToggling ? (
+                                    <>
+                                      <Loader2 size={11} className="animate-spin" /> Đang đổi...
+                                    </>
+                                  ) : isActive ? (
                                     <>
                                       <Eye size={11} /> Đang bán
                                     </>

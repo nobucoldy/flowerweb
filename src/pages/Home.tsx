@@ -6,7 +6,7 @@ import { ChatBubbles } from '../components/ChatBubbles'
 import { ProductCard } from '../components/ProductCard'
 import { ImageLightbox } from '../components/ImageLightbox'
 import { supabase } from '../lib/supabaseClient'
-import { isDemoMode, getLocalProducts } from '../lib/demoData'
+import { isDemoMode, getLocalProducts, saveLocalProducts } from '../lib/demoData'
 import { recordPageView, recordProductView } from '../lib/analytics'
 import type { Product } from '../store/useCartStore'
 import { useSettingsStore } from '../store/useSettingsStore'
@@ -38,13 +38,20 @@ export const Home: React.FC = () => {
         const { data, error } = await supabase
           .from('products')
           .select('*')
-          .eq('status', 'active')
           .order('created_at', { ascending: false })
         if (error) throw error
-        if (data) setProducts(data as Product[])
+        if (data && data.length > 0) {
+          saveLocalProducts(data as Product[])
+          setProducts((data as Product[]).filter(p => (p.status || 'active') === 'active'))
+        } else {
+          const allProds = getLocalProducts()
+          setProducts(allProds.filter(p => (p.status || 'active') === 'active'))
+        }
       }
     } catch (e) {
-      console.error('Lỗi khi lấy danh sách sản phẩm:', e)
+      console.warn('Lỗi khi lấy danh sách sản phẩm từ Supabase, fallback sang dữ liệu máy:', e)
+      const allProds = getLocalProducts()
+      setProducts(allProds.filter(p => (p.status || 'active') === 'active'))
     } finally {
       setLoading(false)
     }

@@ -53,6 +53,61 @@ export const resetToSeedData = () => {
   return SEED_PRODUCTS
 }
 
+export const saveLocalProduct = (item: Partial<Product> & { name: string; price: number; image_url: string }): Product => {
+  const current = getLocalProducts()
+  let result: Product
+  let updated: Product[]
+
+  if (item.id) {
+    const existing = current.find(p => p.id === item.id)
+    result = {
+      ...(existing || { id: item.id, created_at: new Date().toISOString() }),
+      ...item,
+      id: item.id,
+      status: item.status || existing?.status || 'active',
+      views_count: item.views_count ?? existing?.views_count ?? 0
+    }
+    const found = current.some(p => p.id === item.id)
+    if (found) {
+      updated = current.map(p => p.id === item.id ? result : p)
+    } else {
+      updated = [result, ...current]
+    }
+  } else {
+    result = {
+      ...item,
+      id: `prod-${Date.now()}`,
+      status: item.status || 'active',
+      views_count: item.views_count ?? 0,
+      created_at: new Date().toISOString()
+    }
+    updated = [result, ...current]
+  }
+
+  saveLocalProducts(updated)
+  return result
+}
+
+export const toggleProductStatusLocal = (id: string, explicitStatus?: 'active' | 'inactive'): Product[] => {
+  const current = getLocalProducts()
+  const updated = current.map(p => {
+    if (p.id === id) {
+      const nextStatus = explicitStatus || ((p.status || 'active') === 'active' ? 'inactive' : 'active')
+      return { ...p, status: nextStatus }
+    }
+    return p
+  })
+  saveLocalProducts(updated)
+  return updated
+}
+
+export const deleteLocalProduct = (id: string): Product[] => {
+  const current = getLocalProducts()
+  const updated = current.filter(p => p.id !== id)
+  saveLocalProducts(updated)
+  return updated
+}
+
 // Tăng lượt xem cho một sản phẩm trong LocalStorage (kèm ngày)
 export const incrementLocalProductView = (productId: string): number => {
   try {
