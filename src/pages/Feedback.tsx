@@ -16,18 +16,40 @@ export const Feedback: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [honeypot, setHoneypot] = useState('')
+  const [lastSubmitTime, setLastSubmitTime] = useState<number>(0)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!content.trim()) {
+
+    // Bẫy bot (Honeypot): Nếu bot tự động điền trường ẩn này, kết thúc giả lập thành công
+    if (honeypot) {
+      setIsSuccess(true)
+      return
+    }
+
+    // Chống Spam liên tục (Cooldown 10 giây giữa 2 lần gửi)
+    const now = Date.now()
+    if (now - lastSubmitTime < 10000) {
+      setErrorMsg('Bạn vừa gửi lời nhắn xong. Vui lòng chờ vài giây trước khi gửi tiếp nhé!')
+      return
+    }
+
+    const trimmedContent = content.trim()
+    if (!trimmedContent) {
       setErrorMsg('Vui lòng nhập nội dung góp ý trước khi gửi.')
+      return
+    }
+
+    if (trimmedContent.length > 1000) {
+      setErrorMsg('Nội dung góp ý quá dài (tối đa 1000 ký tự).')
       return
     }
 
     setIsSubmitting(true)
     setErrorMsg(null)
 
-    const finalTag = senderTag.trim() ? senderTag.trim() : 'Khách ẩn danh'
+    const finalTag = senderTag.trim().slice(0, 50) || 'Khách ẩn danh'
 
 
     try {
@@ -55,6 +77,7 @@ export const Feedback: React.FC = () => {
       }
 
       setIsSuccess(true)
+      setLastSubmitTime(Date.now())
       setContent('')
       setSenderTag('')
     } catch (err: any) {
@@ -116,6 +139,17 @@ export const Feedback: React.FC = () => {
             onSubmit={handleSubmit}
             className="bg-white border border-[#f9e1e4]/70 rounded-2xl p-6 sm:p-8 shadow-xs"
           >
+            {/* Honeypot chống Bot spam (vô hình với người dùng) */}
+            <input
+              type="text"
+              name="hp_website"
+              value={honeypot}
+              onChange={(e) => setHoneypot(e.target.value)}
+              tabIndex={-1}
+              autoComplete="off"
+              className="opacity-0 absolute -left-[9999px] -top-[9999px] h-0 w-0 z-[-1] pointer-events-none"
+              aria-hidden="true"
+            />
             {/* Đánh giá độ hài lòng tổng quan */}
             <div className="mb-6">
               <label className="block text-xs font-semibold text-stone-700 uppercase tracking-wider mb-2">

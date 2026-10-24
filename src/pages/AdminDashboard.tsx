@@ -8,7 +8,7 @@ import {
   type TimeFilter, type AnonymousFeedback, type ShopShowcase, type ShopBanner
 } from '../lib/demoData'
 import { fetchAnalyticsSummary, isWithinTimeframe, type AnalyticsSummary } from '../lib/analytics'
-import { compressImage } from '../lib/imageUtils'
+import { compressImage, validateImageFile } from '../lib/imageUtils'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { 
@@ -337,6 +337,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
   const handleShowcaseImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
+      const validation = validateImageFile(file)
+      if (!validation.valid) {
+        alert(validation.error)
+        e.target.value = ''
+        return
+      }
       setScSelectedFile(file)
       try {
         const compressed = await compressImage(file, 1400, 1400, 0.8)
@@ -501,6 +507,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
   const handleBannerImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
+      const validation = validateImageFile(file)
+      if (!validation.valid) {
+        alert(validation.error)
+        e.target.value = ''
+        return
+      }
       setBnSelectedFile(file)
       setIsProcessingBannerImg(true)
       try {
@@ -639,6 +651,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0]
+      const validation = validateImageFile(file)
+      if (!validation.valid) {
+        alert(validation.error)
+        e.target.value = ''
+        return
+      }
       setSelectedFile(file)
       setImagePreview(URL.createObjectURL(file))
     }
@@ -678,18 +696,18 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ navigate }) => {
 
     setUploadProgress(true)
     try {
-      const fileExt = file.name.split('.').pop()
+      const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')
       const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`
       const filePath = `products/${fileName}`
 
       const { error: uploadError } = await supabase.storage
-        .from('product-images')
+        .from('products')
         .upload(filePath, file)
 
       if (uploadError) throw uploadError
 
       const { data: { publicUrl } } = supabase.storage
-        .from('product-images')
+        .from('products')
         .getPublicUrl(filePath)
 
       return publicUrl

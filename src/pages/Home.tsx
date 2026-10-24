@@ -11,13 +11,14 @@ import { recordPageView, recordProductView } from '../lib/analytics'
 import type { Product } from '../store/useCartStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { HeroBannerSlider } from '../components/HeroBannerSlider'
-import { Sparkles } from 'lucide-react'
+import { Sparkles, SlidersHorizontal } from 'lucide-react'
+import { PRICE_FILTER_OPTIONS, matchPriceFilter, type PriceFilterType } from '../lib/priceUtils'
 
 export const Home: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [activeLightboxImage, setActiveLightboxImage] = useState<string | null>(null)
-  const [sortBy, setSortBy] = useState<'featured' | 'views' | 'price_asc' | 'price_desc'>('featured')
+  const [priceFilter, setPriceFilter] = useState<PriceFilterType>('all')
   const { fetchSettings } = useSettingsStore()
 
   useEffect(() => {
@@ -65,20 +66,27 @@ export const Home: React.FC = () => {
     setActiveLightboxImage(product.image_url)
   }
 
-  // Lọc sản phẩm active và sắp xếp
+  // Thống kê số lượng sản phẩm theo từng mức giá
+  const countsByFilter = useMemo(() => {
+    const activeProds = products.filter((p) => (p.status || 'active') === 'active')
+    return {
+      all: activeProds.length,
+      'under-3xx': activeProds.filter((p) => matchPriceFilter(p.price, 'under-3xx')).length,
+      '3xx-5xx': activeProds.filter((p) => matchPriceFilter(p.price, '3xx-5xx')).length,
+      'above-5xx': activeProds.filter((p) => matchPriceFilter(p.price, 'above-5xx')).length,
+    }
+  }, [products])
+
+  // Lọc sản phẩm theo khoảng giá
   const filteredProducts = useMemo(() => {
     const list = products.filter((p) => (p.status || 'active') === 'active')
 
-    if (sortBy === 'views') {
-      list.sort((a, b) => (b.views_count || 0) - (a.views_count || 0))
-    } else if (sortBy === 'price_asc') {
-      list.sort((a, b) => a.price - b.price)
-    } else if (sortBy === 'price_desc') {
-      list.sort((a, b) => b.price - a.price)
+    if (priceFilter !== 'all') {
+      return list.filter((p) => matchPriceFilter(p.price, priceFilter))
     }
 
     return list
-  }, [products, sortBy])
+  }, [products, priceFilter])
 
   return (
     <div className="min-h-screen w-full relative overflow-hidden bg-[#fffafb] flex flex-col">
@@ -115,26 +123,45 @@ export const Home: React.FC = () => {
         {/* Cảnh báo cấu hình dự phòng nếu chưa điền ENV */}
         
 
-        {/* Thanh công cụ danh sách sản phẩm (Bỏ lọc loại hoa, chỉ giữ sắp xếp) */}
-        <div className="mb-8 flex items-center justify-between border-b border-stone-200/60 pb-3">
-          <div className="flex items-center gap-2 text-xs text-stone-500 font-medium">
-            <Sparkles size={14} className="text-rose-500" />
-            <span>Bộ sưu tập hoa ({filteredProducts.length} mẫu)</span>
+        {/* Thanh công cụ lọc khoảng giá: Dưới 3xx, 3xx-5xx, Trên 5xx */}
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-3 border-b border-stone-200/60 pb-4">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            <span className="text-xs text-stone-500 font-medium mr-1 flex items-center gap-1">
+              <SlidersHorizontal size={13} className="text-stone-400" />
+              Mức giá:
+            </span>
+            {PRICE_FILTER_OPTIONS.map((option) => {
+              const isActive = priceFilter === option.key
+              const count = countsByFilter[option.key]
+              return (
+                <button
+                  key={option.key}
+                  onClick={() => setPriceFilter(option.key)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
+                    isActive
+                      ? 'bg-stone-900 text-stone-50 shadow-xs'
+                      : 'bg-white/80 hover:bg-stone-100 text-stone-600 border border-stone-200/80 hover:border-stone-300'
+                  }`}
+                >
+                  <span>{option.label}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-semibold ${
+                      isActive
+                        ? 'bg-stone-800 text-stone-200'
+                        : 'bg-stone-100 text-stone-500'
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              )
+            })}
           </div>
 
-          {/* Sắp xếp */}
-          <div className="flex items-center gap-2 text-xs">
-            <span className="text-stone-400">Sắp xếp:</span>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as any)}
-              className="bg-white border border-stone-200 text-stone-800 rounded-sm px-2.5 py-1 text-xs focus:outline-hidden cursor-pointer"
-            >
-              <option value="featured">✨ Mới nhất</option>
-              <option value="views">🔥 Phổ biến nhất</option>
-              <option value="price_asc">💵 Giá: Thấp đến Cao</option>
-              <option value="price_desc">💎 Giá: Cao đến Thấp</option>
-            </select>
+          {/* Đếm số mẫu đang hiển thị */}
+          <div className="flex items-center gap-1.5 text-xs text-stone-500">
+            <Sparkles size={13} className="text-rose-500" />
+            <span>{filteredProducts.length} mẫu hoa</span>
           </div>
         </div>
 
@@ -151,12 +178,26 @@ export const Home: React.FC = () => {
             ))}
           </div>
         ) : filteredProducts.length === 0 ? (
-          // Empty State
-          <div className="text-center py-20 bg-white rounded-md border border-stone-100 px-8 shadow-xs max-w-lg mx-auto">
-            <p className="text-stone-400 font-serif italic mb-4">Cửa hàng hiện chưa có sản phẩm nào được hiển thị</p>
-            <p className="text-xs text-stone-500 max-w-sm mx-auto leading-relaxed">
-              Vui lòng truy cập trang <a href="/admin" className="underline text-stone-950 font-bold hover:text-stone-700">Quản trị viên</a> để bật trạng thái hiển thị cho các sản phẩm hoa.
+          // Empty State (Khi lọc không có kết quả)
+          <div className="text-center py-16 bg-white/80 backdrop-blur-xs rounded-xl border border-stone-200/70 px-8 shadow-xs max-w-md mx-auto">
+            <p className="text-stone-700 font-serif text-base mb-2">Không tìm thấy mẫu hoa phù hợp</p>
+            <p className="text-xs text-stone-500 mb-5 leading-relaxed">
+              {priceFilter !== 'all'
+                ? 'Thử chọn khoảng giá khác để xem thêm nhiều mẫu hoa nhé.'
+                : 'Cửa hàng hiện chưa có sản phẩm nào được hiển thị.'}
             </p>
+            {priceFilter !== 'all' ? (
+              <button
+                onClick={() => setPriceFilter('all')}
+                className="px-4 py-2 bg-stone-900 hover:bg-stone-800 text-stone-50 rounded-full text-xs font-medium transition-colors cursor-pointer"
+              >
+                Xem tất cả mẫu hoa
+              </button>
+            ) : (
+              <p className="text-xs text-stone-500 max-w-sm mx-auto leading-relaxed">
+                Vui lòng truy cập trang <a href="/admin" className="underline text-stone-950 font-bold hover:text-stone-700">Quản trị viên</a> để bật trạng thái hiển thị cho các sản phẩm hoa.
+              </p>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8 animate-fade-in">

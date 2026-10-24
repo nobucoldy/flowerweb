@@ -9,21 +9,24 @@ const DEMO_PRODUCTS_KEY = 'que_anh_demo_products'
 const DEMO_ORDERS_KEY = 'que_anh_demo_orders'
 const DEMO_PAGE_VIEWS_KEY = 'que_anh_demo_page_views'
 const DEMO_PRODUCT_VIEWS_KEY = 'que_anh_demo_product_daily_views'
+const DEMO_SEED_VERSION_KEY = 'que_anh_demo_seed_version'
+const CURRENT_SEED_VERSION = '2026-10-24-prices-v1'
 
 export type TimeFilter = 'today' | 'week' | 'month' | 'all'
 
 export const getLocalProducts = (): Product[] => {
   try {
+    const version = localStorage.getItem(DEMO_SEED_VERSION_KEY)
+    if (version !== CURRENT_SEED_VERSION) {
+      localStorage.setItem(DEMO_SEED_VERSION_KEY, CURRENT_SEED_VERSION)
+      saveLocalProducts(SEED_PRODUCTS)
+      return SEED_PRODUCTS
+    }
+
     const saved = localStorage.getItem(DEMO_PRODUCTS_KEY)
     if (saved) {
       const parsed = JSON.parse(saved)
       if (Array.isArray(parsed) && parsed.length > 0) {
-        // Tự động đồng bộ sang định dạng "Hoa mã #..." nếu trong localStorage vẫn còn tên cũ
-        const hasLegacyName = parsed.some((p: any) => p.name && !p.name.startsWith('Hoa mã #'))
-        if (hasLegacyName) {
-          saveLocalProducts(SEED_PRODUCTS)
-          return SEED_PRODUCTS
-        }
         return parsed
       }
     }
@@ -43,6 +46,9 @@ export const saveLocalProducts = (products: (Product | SeedProduct)[]) => {
 }
 
 export const resetToSeedData = () => {
+  try {
+    localStorage.setItem(DEMO_SEED_VERSION_KEY, CURRENT_SEED_VERSION)
+  } catch {}
   saveLocalProducts(SEED_PRODUCTS)
   return SEED_PRODUCTS
 }

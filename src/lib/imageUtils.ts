@@ -1,3 +1,33 @@
+export const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+export const MAX_IMAGE_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
+
+/**
+ * Kiểm tra tính hợp lệ của file tải lên (chống tải file độc hại, file thực thi)
+ */
+export const validateImageFile = (file: File): { valid: boolean; error?: string } => {
+  if (!file) {
+    return { valid: false, error: 'Không tìm thấy file tải lên.' }
+  }
+
+  // Chặn file có định dạng không nằm trong danh sách cho phép
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type.toLowerCase())) {
+    return {
+      valid: false,
+      error: 'Định dạng file không an toàn! Vui lòng chỉ chọn ảnh JPG, PNG, WEBP hoặc GIF.'
+    }
+  }
+
+  // Chặn file kích thước quá lớn (> 10MB)
+  if (file.size > MAX_IMAGE_SIZE_BYTES) {
+    return {
+      valid: false,
+      error: 'Dung lượng ảnh vượt quá 10MB. Vui lòng chọn ảnh nhẹ hơn!'
+    }
+  }
+
+  return { valid: true }
+}
+
 /**
  * Nén ảnh trước khi lưu vào localStorage hoặc tải lên Supabase
  * Giúp giảm dung lượng từ 3MB-10MB xuống còn ~60KB-120KB mà vẫn giữ độ nét cao,

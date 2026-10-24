@@ -13,121 +13,36 @@ ON CONFLICT (key) DO UPDATE SET
   value = EXCLUDED.value,
   updated_at = NOW();
 
--- 2. NẠP DANH SÁCH 12 SẢN PHẨM HOA LỤA ĐÁNH MÃ TỪ #01 ĐẾN #12
+-- 2. NẠP DANH SÁCH 22 SẢN PHẨM HOA LỤA ĐÁNH MÃ TỪ #01 ĐẾN #22
 INSERT INTO public.products (id, name, price, image_url, status, views_count, created_at) VALUES
-  (
-    'prod-01', 
-    'Hoa mã #01', 
-    380000, 
-    'https://images.unsplash.com/photo-1561181286-d3fee7d55364?q=80&w=600&auto=format&fit=crop', 
-    'active', 
-    142, 
-    NOW() - INTERVAL '10 days'
-  ),
-  (
-    'prod-02', 
-    'Hoa mã #02', 
-    450000, 
-    'https://images.unsplash.com/photo-1526047932273-341f2a7631f9?q=80&w=600&auto=format&fit=crop', 
-    'active', 
-    98, 
-    NOW() - INTERVAL '9 days'
-  ),
-  (
-    'prod-03', 
-    'Hoa mã #03', 
-    290000, 
-    'https://images.unsplash.com/photo-1520763185298-1b434c919102?q=80&w=600&auto=format&fit=crop', 
-    'active', 
-    215, 
-    NOW() - INTERVAL '8 days'
-  ),
-  (
-    'prod-04', 
-    'Hoa mã #04', 
-    320000, 
-    'https://images.unsplash.com/photo-1597848212624-a19eb35e2651?q=80&w=600&auto=format&fit=crop', 
-    'active', 
-    85, 
-    NOW() - INTERVAL '7 days'
-  ),
-  (
-    'prod-05', 
-    'Hoa mã #05', 
-    520000, 
-    'https://images.unsplash.com/photo-1587556930799-8dca6aef3dc5?q=80&w=600&auto=format&fit=crop', 
-    'active', 
-    176, 
-    NOW() - INTERVAL '6 days'
-  ),
-  (
-    'prod-06', 
-    'Hoa mã #06', 
-    680000, 
-    'https://images.unsplash.com/photo-1525310072745-f49212b5ac6d?q=80&w=600&auto=format&fit=crop', 
-    'active', 
-    64, 
-    NOW() - INTERVAL '5 days'
-  ),
-  (
-    'prod-07', 
-    'Hoa mã #07', 
-    350000, 
-    'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=600&auto=format&fit=crop', 
-    'active', 
-    129, 
-    NOW() - INTERVAL '4 days'
-  ),
-  (
-    'prod-08', 
-    'Hoa mã #08', 
-    250000, 
-    'https://images.unsplash.com/photo-1563245372-f21724e3856d?q=80&w=600&auto=format&fit=crop', 
-    'active', 
-    110, 
-    NOW() - INTERVAL '3 days'
-  ),
-  (
-    'prod-09', 
-    'Hoa mã #09', 
-    850000, 
-    'https://images.unsplash.com/photo-1548199973-03cce0bbc87b?q=80&w=600&auto=format&fit=crop', 
-    'active', 
-    312, 
-    NOW() - INTERVAL '2 days'
-  ),
-  (
-    'prod-10', 
-    'Hoa mã #10', 
-    490000, 
-    'https://images.unsplash.com/photo-1567696911980-2eed69a46042?q=80&w=600&auto=format&fit=crop', 
-    'active', 
-    93, 
-    NOW() - INTERVAL '1 day'
-  ),
-  (
-    'prod-11', 
-    'Hoa mã #11', 
-    420000, 
-    'https://images.unsplash.com/photo-1508610048659-a06b669e3321?q=80&w=600&auto=format&fit=crop', 
-    'active', 
-    77, 
-    NOW() - INTERVAL '12 hours'
-  ),
-  (
-    'prod-12', 
-    'Hoa mã #12', 
-    280000, 
-    'https://images.unsplash.com/photo-1528722828814-77b9b83aafb2?q=80&w=600&auto=format&fit=crop', 
-    'active', 
-    155, 
-    NOW()
-  )
+  ('prod-01', 'Hoa mã #01', 95000, '/flower-image/ma(1).jpg', 'active', 0, NOW() - INTERVAL '21 days'),
+  ('prod-02', 'Hoa mã #02', 380000, '/flower-image/ma(2).jpg', 'active', 0, NOW() - INTERVAL '20 days'),
+  ('prod-03', 'Hoa mã #03', 250000, '/flower-image/ma(3).jpg', 'active', 0, NOW() - INTERVAL '19 days'),
+  ('prod-04', 'Hoa mã #04', 280000, '/flower-image/ma(4).jpg', 'active', 0, NOW() - INTERVAL '18 days'),
+  ('prod-05', 'Hoa mã #05', 300000, '/flower-image/ma(5).jpg', 'active', 0, NOW() - INTERVAL '17 days'),
+  ('prod-06', 'Hoa mã #06', 25000, '/flower-image/ma(6).jpg', 'active', 0, NOW() - INTERVAL '16 days'),
+  ('prod-07', 'Hoa mã #07', 480000, '/flower-image/ma(7).jpg', 'active', 0, NOW() - INTERVAL '15 days'),
+  ('prod-08', 'Hoa mã #08', 350000, '/flower-image/ma(8).jpg', 'active', 0, NOW() - INTERVAL '14 days'),
+  ('prod-09', 'Hoa mã #09', 0, '/flower-image/ma(9).jpg', 'active', 0, NOW() - INTERVAL '13 days'),
+  ('prod-10', 'Hoa mã #10', 250000, '/flower-image/ma(10).jpg', 'active', 0, NOW() - INTERVAL '12 days'),
+  ('prod-11', 'Hoa mã #11', 0, '/flower-image/ma(11).jpg', 'active', 0, NOW() - INTERVAL '11 days'),
+  ('prod-12', 'Hoa mã #12', 450000, '/flower-image/ma(12).jpg', 'active', 0, NOW() - INTERVAL '10 days'),
+  ('prod-13', 'Hoa mã #13', 290000, '/flower-image/ma(13).jpg', 'active', 0, NOW() - INTERVAL '9 days'),
+  ('prod-14', 'Hoa mã #14', 380000, '/flower-image/ma(14).jpg', 'active', 0, NOW() - INTERVAL '8 days'),
+  ('prod-15', 'Hoa mã #15', 400000, '/flower-image/ma(15).jpg', 'active', 0, NOW() - INTERVAL '7 days'),
+  ('prod-16', 'Hoa mã #16', 300000, '/flower-image/ma(16).jpg', 'active', 0, NOW() - INTERVAL '6 days'),
+  ('prod-17', 'Hoa mã #17', 300000, '/flower-image/ma(17).jpg', 'active', 0, NOW() - INTERVAL '5 days'),
+  ('prod-18', 'Hoa mã #18', 200000, '/flower-image/ma(18).jpg', 'active', 0, NOW() - INTERVAL '4 days'),
+  ('prod-19', 'Hoa mã #19', 420000, '/flower-image/ma(19).jpg', 'active', 0, NOW() - INTERVAL '3 days'),
+  ('prod-20', 'Hoa mã #20', 500000, '/flower-image/ma(20).jpg', 'active', 0, NOW() - INTERVAL '2 days'),
+  ('prod-21', 'Hoa mã #21', 420000, '/flower-image/ma(21).jpg', 'active', 0, NOW() - INTERVAL '1 day'),
+  ('prod-22', 'Hoa mã #22', 300000, '/flower-image/ma(22).jpg', 'active', 0, NOW())
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   price = EXCLUDED.price,
   image_url = EXCLUDED.image_url,
-  status = EXCLUDED.status;
+  status = EXCLUDED.status,
+  views_count = EXCLUDED.views_count;
 
 -- 3. NẠP LƯỢT TRUY CẬP WEBSITE KHỞI TẠO
 INSERT INTO public.page_views (view_date, views_count, updated_at) VALUES
