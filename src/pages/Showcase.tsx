@@ -6,7 +6,7 @@ import { ChatBubbles } from '../components/ChatBubbles'
 import { ImageLightbox } from '../components/ImageLightbox'
 import { supabase } from '../lib/supabaseClient'
 import { isDemoMode, getLocalShowcases, type ShopShowcase } from '../lib/demoData'
-import { ZoomIn, Images, Pin } from 'lucide-react'
+import { ZoomIn, Images } from 'lucide-react'
 
 export const Showcase: React.FC = () => {
   const [showcases, setShowcases] = useState<ShopShowcase[]>([])
@@ -116,11 +116,6 @@ export const Showcase: React.FC = () => {
                         loading="lazy"
                         className="w-full h-auto block object-contain group-hover:scale-[1.015] transition-transform duration-300"
                       />
-                      {item.is_pinned && (
-                        <span className="absolute top-2.5 left-2.5 z-10 bg-rose-600 text-white text-[10px] font-bold uppercase px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1 tracking-wider">
-                          <Pin size={10} className="rotate-45" /> Ghim đầu
-                        </span>
-                      )}
                       {/* Icon phóng to khi rê chuột vào ảnh */}
                       <div className="absolute inset-0 bg-stone-900/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                         <span className="p-2 bg-white/95 text-stone-800 rounded-full shadow-xs">
