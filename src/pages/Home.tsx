@@ -76,12 +76,19 @@ export const Home: React.FC = () => {
   // Thống kê số lượng sản phẩm theo từng mức giá
   const countsByFilter = useMemo(() => {
     const activeProds = products.filter((p) => (p.status || 'active') === 'active')
-    return {
+    const counts: Record<PriceFilterType, number> = {
       all: activeProds.length,
-      'under-3xx': activeProds.filter((p) => matchPriceFilter(p.price, 'under-3xx')).length,
-      '3xx-5xx': activeProds.filter((p) => matchPriceFilter(p.price, '3xx-5xx')).length,
-      'above-5xx': activeProds.filter((p) => matchPriceFilter(p.price, 'above-5xx')).length,
+      'under-100k': 0,
+      '100k-300k': 0,
+      '300k-500k': 0,
+      'above-500k': 0,
     }
+    PRICE_FILTER_OPTIONS.forEach((opt) => {
+      if (opt.key !== 'all') {
+        counts[opt.key] = activeProds.filter((p) => matchPriceFilter(p.price, opt.key)).length
+      }
+    })
+    return counts
   }, [products])
 
   // Lọc sản phẩm theo khoảng giá
@@ -130,7 +137,7 @@ export const Home: React.FC = () => {
         {/* Cảnh báo cấu hình dự phòng nếu chưa điền ENV */}
         
 
-        {/* Thanh công cụ lọc khoảng giá: Dưới 3xx, 3xx-5xx, Trên 5xx */}
+        {/* Thanh công cụ lọc khoảng giá: Dưới 100k, 100k-300k, 300k-500k, Trên 500k */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-3 border-b border-stone-200/60 pb-4">
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <span className="text-xs text-stone-500 font-medium mr-1 flex items-center gap-1">
@@ -144,7 +151,7 @@ export const Home: React.FC = () => {
                 <button
                   key={option.key}
                   onClick={() => setPriceFilter(option.key)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5 cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200 flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                     isActive
                       ? 'bg-stone-900 text-stone-50 shadow-xs'
                       : 'bg-white/80 hover:bg-stone-100 text-stone-600 border border-stone-200/80 hover:border-stone-300'

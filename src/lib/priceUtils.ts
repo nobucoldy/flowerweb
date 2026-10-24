@@ -1,4 +1,4 @@
-export type PriceFilterType = 'all' | 'under-3xx' | '3xx-5xx' | 'above-5xx'
+export type PriceFilterType = 'all' | 'under-100k' | '100k-300k' | '300k-500k' | 'above-500k'
 
 export interface PriceFilterOption {
   key: PriceFilterType
@@ -7,9 +7,10 @@ export interface PriceFilterOption {
 
 export const PRICE_FILTER_OPTIONS: PriceFilterOption[] = [
   { key: 'all', label: 'Tất cả' },
-  { key: 'under-3xx', label: 'Dưới 3xx' },
-  { key: '3xx-5xx', label: '3xx - 5xx' },
-  { key: 'above-5xx', label: 'Trên 5xx' },
+  { key: 'under-100k', label: 'Dưới 100k' },
+  { key: '100k-300k', label: '100k - 300k' },
+  { key: '300k-500k', label: '300k - 500k' },
+  { key: 'above-500k', label: 'Trên 500k' },
 ]
 
 /**
@@ -44,24 +45,31 @@ export const formatPriceDisplay = (price: number): string => {
 
 /**
  * Kiểm tra xem sản phẩm có thỏa mãn bộ lọc giá hay không
- * - Dưới 3xx: các mẫu giá 1xx, 2xx (dưới 300.000đ)
- * - 3xx - 5xx: các mẫu giá 3xx, 4xx, 5xx (từ 300.000đ đến dưới 600.000đ)
- * - Trên 5xx: các mẫu giá trên 5xx (từ 6xx trở lên, tức >= 600.000đ)
+ * - Dưới 100k: các mẫu giá dưới 100.000đ (ví dụ 25k, 50k, 95k...)
+ * - 100k - 300k: các mẫu giá từ 100.000đ đến dưới 300.000đ
+ * - 300k - 500k: các mẫu giá từ 300.000đ đến 500.000đ
+ * - Trên 500k: các mẫu giá trên 500.000đ (> 500.000đ)
  */
 export const matchPriceFilter = (price: number, filter: PriceFilterType): boolean => {
   if (filter === 'all') return true
+  if (!price || isNaN(price) || price <= 0) return false
+
   const normalized = price < 1000 ? price * 1000 : price
 
-  if (filter === 'under-3xx') {
-    return normalized < 300000
+  if (filter === 'under-100k') {
+    return normalized < 100000
   }
 
-  if (filter === '3xx-5xx') {
-    return normalized >= 300000 && normalized < 600000
+  if (filter === '100k-300k') {
+    return normalized >= 100000 && normalized <= 300000
   }
 
-  if (filter === 'above-5xx') {
-    return normalized >= 600000
+  if (filter === '300k-500k') {
+    return normalized >= 300000 && normalized <= 500000
+  }
+
+  if (filter === 'above-500k') {
+    return normalized > 500000
   }
 
   return true
