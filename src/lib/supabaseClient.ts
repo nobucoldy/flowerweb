@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { compressImageToFile } from './imageUtils'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -47,7 +48,11 @@ export const uploadStorageImage = async (
     return null
   }
 
-  const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')
+  // Tự động nén và resize ảnh trước khi truyền qua mạng
+  const maxDim = folder === 'banners' ? 1600 : 1200
+  const optimizedFile = await compressImageToFile(file, maxDim, maxDim, 0.82)
+
+  const fileExt = (optimizedFile.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')
   const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`
   const filePath = `${folder}/${fileName}`
   const buckets = ['products', 'product-images']
@@ -58,10 +63,10 @@ export const uploadStorageImage = async (
       try {
         const { error: upErr } = await client.storage
           .from(bName)
-          .upload(filePath, file, {
-            cacheControl: '3600',
+          .upload(filePath, optimizedFile, {
+            cacheControl: '31536000',
             upsert: true,
-            contentType: file.type || 'image/jpeg'
+            contentType: optimizedFile.type || 'image/jpeg'
           })
 
         if (!upErr) {
