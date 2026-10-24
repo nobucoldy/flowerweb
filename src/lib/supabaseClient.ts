@@ -35,10 +35,22 @@ export const supabaseAdmin = createClient(
   }
 )
 
+let lastWorkingBucket: string | null = null
+let lastWorkingClient: 'admin' | 'anon' | null = null
+
+// Helper giới hạn thời gian chờ upload (timeout sau 6 giây để không làm đơ giao diện)
+const uploadWithTimeout = async (promise: Promise<any>, timeoutMs = 6000) => {
+  let timer: any
+  const timeoutPromise = new Promise<{ error: any }>((resolve) => {
+    timer = setTimeout(() => resolve({ error: new Error('Upload storage timeout') }), timeoutMs)
+  })
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer))
+}
+
 /**
  * Upload file ảnh an toàn lên Supabase Storage
  * Tự động thử các bucket có sẵn ('products', 'product-images')
- * và trả về Public URL. Nếu Storage bị lỗi hoặc chưa có quyền, trả về null để fallback sang Base64.
+ * Có timeout 6s và ghi nhớ bucket thành công để các lần sau chạy tức thì.
  */
 export const uploadStorageImage = async (
   file: File,
@@ -55,19 +67,29 @@ export const uploadStorageImage = async (
   const fileExt = (optimizedFile.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '')
   const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`
   const filePath = `${folder}/${fileName}`
-  const buckets = ['products', 'product-images']
+  
+  // Sắp xếp bucket và client theo thứ tự ưu tiên (ưu tiên cấu hình đã thành công trước đó)
+  const buckets = lastWorkingBucket 
+    ? [lastWorkingBucket, ...['products', 'product-images'].filter(b => b !== lastWorkingBucket)]
+    : ['products', 'product-images']
 
-  // Thử lần lượt với client quản trị trước, sau đó với client thông thường
-  for (const client of [supabaseAdmin, supabase]) {
+  const clients = lastWorkingClient === 'anon'
+    ? [{ type: 'anon', client: supabase }, { type: 'admin', client: supabaseAdmin }]
+    : [{ type: 'admin', client: supabaseAdmin }, { type: 'anon', client: supabase }]
+
+  for (const { type, client } of clients) {
     for (const bName of buckets) {
       try {
-        const { error: upErr } = await client.storage
-          .from(bName)
-          .upload(filePath, optimizedFile, {
-            cacheControl: '31536000',
-            upsert: true,
-            contentType: optimizedFile.type || 'image/jpeg'
-          })
+        const { error: upErr } = await uploadWithTimeout(
+          client.storage
+            .from(bName)
+            .upload(filePath, optimizedFile, {
+              cacheControl: '31536000',
+              upsert: true,
+              contentType: optimizedFile.type || 'image/jpeg'
+            }),
+          6000
+        )
 
         if (!upErr) {
           const { data: { publicUrl } } = client.storage
@@ -75,15 +97,14 @@ export const uploadStorageImage = async (
             .getPublicUrl(filePath)
 
           if (publicUrl) {
+            lastWorkingBucket = bName
+            lastWorkingClient = type as any
             console.log(`[Storage] Upload thành công lên ${bName}/${filePath}:`, publicUrl)
             return publicUrl
           }
-        } else {
-          console.warn(`[Storage] Bucket ${bName} báo lỗi:`, upErr.message || upErr)
         }
       } catch (err) {
         // Tiếp tục thử bucket hoặc client khác
-        console.warn(`[Storage] Ngoại lệ upload bucket ${bName}:`, err)
       }
     }
   }
