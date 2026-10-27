@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Plus, Edit, Trash2, Eye, EyeOff, Upload, X, Loader2, Save, Sliders } from 'lucide-react'
 import { supabase, supabaseAdmin, uploadStorageImage } from '../../../lib/supabaseClient'
-import { isDemoMode, getLocalBanners, saveLocalBanner, toggleBannerActiveStatus, deleteLocalBanner, type ShopBanner } from '../../../lib/demoData'
+import type { ShopBanner } from '../types'
 import { compressImage, validateImageFile } from '../../../lib/imageUtils'
 
 interface BannersTabProps {
@@ -29,37 +29,21 @@ export const BannersTab: React.FC<BannersTabProps> = ({ onBannersCountChange }) 
   const fetchBanners = async () => {
     setLoadingBanners(true)
     try {
-      if (isDemoMode) {
-        const local = getLocalBanners()
-        setBanners(local)
-        onBannersCountChange?.(local.length)
-      } else {
-        const { data, error } = await supabase
-          .from('shop_banners')
-          .select('*')
-          .order('order_index', { ascending: true })
-          .order('created_at', { ascending: false })
-        if (error) throw error
-        if (data && data.length > 0) {
-          const list = data as ShopBanner[]
-          setBanners(list)
-          onBannersCountChange?.(list.length)
-        } else {
-          // Bảng trong database đang rỗng, tự động khởi tạo banner mẫu lên Database
-          const local = getLocalBanners()
-          setBanners(local)
-          onBannersCountChange?.(local.length)
-          try {
-            await supabaseAdmin.from('shop_banners').upsert(local, { onConflict: 'id' })
-          } catch (seedErr) {
-            console.warn('Khởi tạo banner mẫu lên DB chưa thành công:', seedErr)
-          }
-        }
+      const { data, error } = await supabase
+        .from('shop_banners')
+        .select('*')
+        .order('order_index', { ascending: true })
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      if (data) {
+        const list = data as ShopBanner[]
+        setBanners(list)
+        onBannersCountChange?.(list.length)
       }
-    } catch {
-      const local = getLocalBanners()
-      setBanners(local)
-      onBannersCountChange?.(local.length)
+    } catch (err) {
+      console.warn('Lỗi lấy danh sách banner từ Supabase:', err)
+      setBanners([])
+      onBannersCountChange?.(0)
     } finally {
       setLoadingBanners(false)
     }
@@ -119,7 +103,7 @@ export const BannersTab: React.FC<BannersTabProps> = ({ onBannersCountChange }) 
     try {
       let finalImageUrl = bnImagePreview
 
-      if (bnSelectedFile && !isDemoMode) {
+      if (bnSelectedFile) {
         const upUrl = await uploadStorageImage(bnSelectedFile, 'banners')
         if (upUrl) {
           finalImageUrl = upUrl
@@ -136,57 +120,47 @@ export const BannersTab: React.FC<BannersTabProps> = ({ onBannersCountChange }) 
         order_index: editingBanner?.order_index ?? banners.length
       }
 
-      if (!isDemoMode) {
-        let savedItem: ShopBanner
-        if (editingBanner) {
-          // Dùng upsert kèm id để nếu banner chưa có trong DB sẽ tự động được INSERT vào DB!
-          const { data, error } = await supabaseAdmin
-            .from('shop_banners')
-            .upsert({ ...bannerPayload, id: editingBanner.id }, { onConflict: 'id' })
-            .select()
+      let savedItem: ShopBanner
+      if (editingBanner) {
+        const { data, error } = await supabaseAdmin
+          .from('shop_banners')
+          .upsert({ ...bannerPayload, id: editingBanner.id }, { onConflict: 'id' })
+          .select()
 
-          if (error) {
-            console.error('Lỗi Supabase khi cập nhật banner:', error)
-            throw new Error(error.message)
-          }
-
-          savedItem = (data && data[0]) ? (data[0] as ShopBanner) : { ...editingBanner, ...bannerPayload }
-        } else {
-          const { data, error } = await supabaseAdmin
-            .from('shop_banners')
-            .insert([bannerPayload])
-            .select()
-
-          if (error) {
-            console.error('Lỗi Supabase khi thêm mới banner:', error)
-            throw new Error(error.message)
-          }
-
-          if (data && data[0]) {
-            savedItem = data[0] as ShopBanner
-          } else {
-            throw new Error('Không nhận được dữ liệu phản hồi từ Database.')
-          }
+        if (error) {
+          console.error('Lỗi Supabase khi cập nhật banner:', error)
+          throw new Error(error.message)
         }
 
-        setBanners(prev => {
-          let next: ShopBanner[]
-          if (editingBanner) {
-            next = prev.map(b => b.id === editingBanner.id ? { ...b, ...savedItem } : b)
-          } else {
-            next = [savedItem, ...prev]
-          }
-          onBannersCountChange?.(next.length)
-          return next
-        })
+        savedItem = (data && data[0]) ? (data[0] as ShopBanner) : { ...editingBanner, ...bannerPayload }
       } else {
-        const updatedList = saveLocalBanner({
-          ...bannerPayload,
-          id: editingBanner?.id
-        })
-        setBanners(updatedList)
-        onBannersCountChange?.(updatedList.length)
+        const { data, error } = await supabaseAdmin
+          .from('shop_banners')
+          .insert([bannerPayload])
+          .select()
+
+        if (error) {
+          console.error('Lỗi Supabase khi thêm mới banner:', error)
+          throw new Error(error.message)
+        }
+
+        if (data && data[0]) {
+          savedItem = data[0] as ShopBanner
+        } else {
+          throw new Error('Không nhận được dữ liệu phản hồi từ Database.')
+        }
       }
+
+      setBanners(prev => {
+        let next: ShopBanner[]
+        if (editingBanner) {
+          next = prev.map(b => b.id === editingBanner.id ? { ...b, ...savedItem } : b)
+        } else {
+          next = [savedItem, ...prev]
+        }
+        onBannersCountChange?.(next.length)
+        return next
+      })
 
       setIsBannerModalOpen(false)
       alert(editingBanner ? 'Đã cập nhật banner thành công!' : 'Đã đăng banner thành công!')
@@ -202,27 +176,14 @@ export const BannersTab: React.FC<BannersTabProps> = ({ onBannersCountChange }) 
     setBanners(prev => prev.map(b => b.id === id ? { ...b, is_active: !currentStatus } : b))
 
     try {
-      if (!isDemoMode) {
-        const { error, data } = await supabaseAdmin
-          .from('shop_banners')
-          .update({ is_active: !currentStatus })
-          .eq('id', id)
-          .select('id')
+      const { error } = await supabaseAdmin
+        .from('shop_banners')
+        .update({ is_active: !currentStatus })
+        .eq('id', id)
 
-        if (error) {
-          console.error('Lỗi Supabase khi đổi trạng thái banner:', error)
-          alert(`Không thể lưu trạng thái vào Database: ${error.message}`)
-        } else if (!data || data.length === 0) {
-          const target = banners.find(b => b.id === id)
-          if (target) {
-            await supabaseAdmin.from('shop_banners').upsert({
-              ...target,
-              is_active: !currentStatus
-            }, { onConflict: 'id' })
-          }
-        }
-      } else {
-        toggleBannerActiveStatus(id)
+      if (error) {
+        console.error('Lỗi Supabase khi đổi trạng thái banner:', error)
+        alert(`Không thể lưu trạng thái vào Database: ${error.message}`)
       }
     } catch (err: any) {
       console.warn('Lỗi đổi trạng thái banner:', err)
@@ -241,16 +202,13 @@ export const BannersTab: React.FC<BannersTabProps> = ({ onBannersCountChange }) 
     })
 
     try {
-      if (!isDemoMode) {
-        const { error } = await supabaseAdmin.from('shop_banners').delete().eq('id', id)
-        if (error) {
-          console.error('Lỗi khi xóa banner khỏi Database:', error)
-          alert(`Không thể xóa khỏi Database: ${error.message}`)
-        }
+      const { error } = await supabaseAdmin.from('shop_banners').delete().eq('id', id)
+      if (error) {
+        console.error('Lỗi khi xóa banner khỏi Database:', error)
+        alert(`Không thể xóa khỏi Database: ${error.message}`)
       } else {
-        deleteLocalBanner(id)
+        alert('Đã xóa banner thành công!')
       }
-      alert('Đã xóa banner thành công!')
     } catch (err) {
       console.error('Lỗi xóa banner:', err)
     }

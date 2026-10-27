@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
-import { isDemoMode, getLocalBanners, type ShopBanner } from '../lib/demoData'
+import type { ShopBanner } from '../pages/admin/types'
 
 export const HeroBannerSlider: React.FC = () => {
   const [banners, setBanners] = useState<ShopBanner[]>([])
@@ -33,26 +33,20 @@ export const HeroBannerSlider: React.FC = () => {
 
   const fetchBanners = async () => {
     try {
-      if (isDemoMode) {
-        const local = getLocalBanners().filter(b => b.is_active)
-        setBanners(local)
-      } else {
-        const { data, error } = await supabase
-          .from('shop_banners')
-          .select('*')
-          .eq('is_active', true)
-          .order('order_index', { ascending: true })
-          .order('created_at', { ascending: false })
-        
-        if (error) throw error
-        if (data && data.length > 0) {
-          setBanners(data as ShopBanner[])
-        } else {
-          setBanners(getLocalBanners().filter(b => b.is_active))
-        }
+      const { data, error } = await supabase
+        .from('shop_banners')
+        .select('*')
+        .eq('is_active', true)
+        .order('order_index', { ascending: true })
+        .order('created_at', { ascending: false })
+      
+      if (error) throw error
+      if (data) {
+        setBanners(data as ShopBanner[])
       }
-    } catch {
-      setBanners(getLocalBanners().filter(b => b.is_active))
+    } catch (err) {
+      console.warn('Lỗi tải banner từ Supabase:', err)
+      setBanners([])
     }
   }
 

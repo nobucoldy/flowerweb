@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Mail, Star, Trash2, Loader2 } from 'lucide-react'
 import { supabase, supabaseAdmin } from '../../../lib/supabaseClient'
-import { isDemoMode, getLocalFeedbacks, toggleFeedbackReadStatus, deleteLocalFeedback, type AnonymousFeedback } from '../../../lib/demoData'
+import type { AnonymousFeedback } from '../types'
 
 interface FeedbackTabProps {
   onFeedbackCountsChange?: (total: number, unread: number) => void
@@ -24,26 +24,20 @@ export const FeedbackTab: React.FC<FeedbackTabProps> = ({ onFeedbackCountsChange
   const fetchFeedbacks = async () => {
     setLoadingFeedbacks(true)
     try {
-      if (isDemoMode) {
-        const local = getLocalFeedbacks()
-        setFeedbacks(local)
-        updateCounts(local)
-      } else {
-        const { data, error } = await supabase
-          .from('anonymous_feedback')
-          .select('*')
-          .order('created_at', { ascending: false })
-        if (error) throw error
-        if (data) {
-          const list = data as AnonymousFeedback[]
-          setFeedbacks(list)
-          updateCounts(list)
-        }
+      const { data, error } = await supabase
+        .from('anonymous_feedback')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      if (data) {
+        const list = data as AnonymousFeedback[]
+        setFeedbacks(list)
+        updateCounts(list)
       }
-    } catch {
-      const local = getLocalFeedbacks()
-      setFeedbacks(local)
-      updateCounts(local)
+    } catch (err) {
+      console.warn('Lỗi lấy danh sách góp ý từ Supabase:', err)
+      setFeedbacks([])
+      updateCounts([])
     } finally {
       setLoadingFeedbacks(false)
     }
@@ -58,27 +52,14 @@ export const FeedbackTab: React.FC<FeedbackTabProps> = ({ onFeedbackCountsChange
     })
 
     try {
-      if (!isDemoMode) {
-        const { error, data } = await supabaseAdmin
-          .from('anonymous_feedback')
-          .update({ is_read: !currentStatus })
-          .eq('id', id)
-          .select('id')
+      const { error } = await supabaseAdmin
+        .from('anonymous_feedback')
+        .update({ is_read: !currentStatus })
+        .eq('id', id)
 
-        if (error) {
-          console.error('Lỗi Supabase khi cập nhật trạng thái đọc feedback:', error)
-          alert(`Không thể lưu trạng thái vào Database: ${error.message}`)
-        } else if (!data || data.length === 0) {
-          const target = feedbacks.find(f => f.id === id)
-          if (target) {
-            await supabaseAdmin.from('anonymous_feedback').upsert({
-              ...target,
-              is_read: !currentStatus
-            }, { onConflict: 'id' })
-          }
-        }
-      } else {
-        toggleFeedbackReadStatus(id)
+      if (error) {
+        console.error('Lỗi Supabase khi cập nhật trạng thái đọc feedback:', error)
+        alert(`Không thể lưu trạng thái vào Database: ${error.message}`)
       }
     } catch (err: any) {
       console.warn('Lỗi cập nhật trạng thái đọc feedback:', err)
@@ -97,14 +78,10 @@ export const FeedbackTab: React.FC<FeedbackTabProps> = ({ onFeedbackCountsChange
     })
 
     try {
-      if (!isDemoMode) {
-        const { error } = await supabaseAdmin.from('anonymous_feedback').delete().eq('id', id)
-        if (error) {
-          console.error('Lỗi khi xóa feedback khỏi Database:', error)
-          alert(`Không thể xóa khỏi Database: ${error.message}`)
-        }
-      } else {
-        deleteLocalFeedback(id)
+      const { error } = await supabaseAdmin.from('anonymous_feedback').delete().eq('id', id)
+      if (error) {
+        console.error('Lỗi khi xóa feedback khỏi Database:', error)
+        alert(`Không thể xóa khỏi Database: ${error.message}`)
       }
     } catch (err) {
       console.error('Lỗi xóa feedback:', err)

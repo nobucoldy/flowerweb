@@ -1,14 +1,13 @@
 import { supabase } from './supabaseClient'
-import { 
-  isDemoMode, 
-  recordLocalPageView, 
-  getLocalPageViewStats, 
-  incrementLocalProductView,
-  getDaysAgoDate,
-  type TimeFilter
-} from './demoData'
+import type { TimeFilter } from '../pages/admin/types'
 
 const SESSION_VIEW_KEY = 'que_anh_visited_session'
+
+export const getDaysAgoDate = (days: number): string => {
+  const d = new Date()
+  d.setDate(d.getDate() - days)
+  return d.toISOString().split('T')[0]
+}
 
 // Ghi nhận lượt truy cập Website (Mỗi phiên mở web tính 1 lần để tránh ảo số do F5 liên tục)
 export const recordPageView = async (): Promise<void> => {
@@ -19,11 +18,6 @@ export const recordPageView = async (): Promise<void> => {
     }
 
     sessionStorage.setItem(SESSION_VIEW_KEY, 'true')
-
-    if (isDemoMode) {
-      recordLocalPageView()
-      return
-    }
 
     // Gọi RPC function trên Supabase nếu có
     const { error } = await supabase.rpc('increment_page_view')
@@ -54,10 +48,6 @@ export const recordPageView = async (): Promise<void> => {
 // Ghi nhận lượt xem sản phẩm (Khi khách click xem ảnh hoặc chi tiết)
 export const recordProductView = async (productId: string): Promise<number> => {
   try {
-    if (isDemoMode) {
-      return incrementLocalProductView(productId)
-    }
-
     // Gọi RPC function trên Supabase
     const { error } = await supabase.rpc('increment_product_view', { product_id: productId })
     if (error) {
@@ -126,61 +116,34 @@ export const fetchAnalyticsSummary = async (
   let pageViews = 0
   let todayPageViews = 0
 
-  if (isDemoMode) {
-    const localStats = getLocalPageViewStats()
-    todayPageViews = localStats.today
+  try {
+    const today = new Date().toISOString().split('T')[0]
+    const { data } = await supabase
+      .from('page_views')
+      .select('view_date, views_count')
 
-    if (timeframe === 'today') {
-      pageViews = localStats.today
-    } else if (timeframe === 'week') {
-      // Tổng 7 ngày qua
-      pageViews = 0
-      for (let i = 0; i < 7; i++) {
-        const d = getDaysAgoDate(i)
-        pageViews += localStats.byDate[d] || 0
+    if (data && data.length > 0) {
+      const todayRow = data.find((r) => r.view_date === today)
+      todayPageViews = todayRow?.views_count || 0
+
+      if (timeframe === 'today') {
+        pageViews = todayPageViews
+      } else if (timeframe === 'week') {
+        const sevenDaysAgo = getDaysAgoDate(7)
+        pageViews = data
+          .filter((r) => r.view_date >= sevenDaysAgo)
+          .reduce((sum, item) => sum + (item.views_count || 0), 0)
+      } else if (timeframe === 'month') {
+        const thirtyDaysAgo = getDaysAgoDate(30)
+        pageViews = data
+          .filter((r) => r.view_date >= thirtyDaysAgo)
+          .reduce((sum, item) => sum + (item.views_count || 0), 0)
+      } else {
+        pageViews = data.reduce((sum, item) => sum + (item.views_count || 0), 0)
       }
-    } else if (timeframe === 'month') {
-      // Tổng 30 ngày qua
-      pageViews = 0
-      for (let i = 0; i < 30; i++) {
-        const d = getDaysAgoDate(i)
-        pageViews += localStats.byDate[d] || 0
-      }
-    } else {
-      pageViews = localStats.total
     }
-  } else {
-    try {
-      const today = new Date().toISOString().split('T')[0]
-      const { data } = await supabase
-        .from('page_views')
-        .select('view_date, views_count')
-
-      if (data && data.length > 0) {
-        const todayRow = data.find((r) => r.view_date === today)
-        todayPageViews = todayRow?.views_count || 0
-
-        if (timeframe === 'today') {
-          pageViews = todayPageViews
-        } else if (timeframe === 'week') {
-          const sevenDaysAgo = getDaysAgoDate(7)
-          pageViews = data
-            .filter((r) => r.view_date >= sevenDaysAgo)
-            .reduce((sum, item) => sum + (item.views_count || 0), 0)
-        } else if (timeframe === 'month') {
-          const thirtyDaysAgo = getDaysAgoDate(30)
-          pageViews = data
-            .filter((r) => r.view_date >= thirtyDaysAgo)
-            .reduce((sum, item) => sum + (item.views_count || 0), 0)
-        } else {
-          pageViews = data.reduce((sum, item) => sum + (item.views_count || 0), 0)
-        }
-      }
-    } catch {
-      const localStats = getLocalPageViewStats()
-      pageViews = localStats.total
-      todayPageViews = localStats.today
-    }
+  } catch (err) {
+    console.warn('Lỗi lấy thống kê page_views từ Supabase:', err)
   }
 
   // Lọc đơn hàng và tính doanh thu theo timeframe
@@ -188,11 +151,11 @@ export const fetchAnalyticsSummary = async (
   const ordersCount = filteredOrders.length
   const totalRevenue = filteredOrders.reduce((sum, o) => sum + (o.total_price || 0), 0)
 
-  // Tính lượt xem sản phẩm (theo tỷ lệ timeframe nếu là demo)
+  // Tính lượt xem sản phẩm
   let totalProductViews = 0
   let topProduct: { name: string; views: number } | null = null
 
-  // Hệ số ước lượng view sản phẩm theo timeframe (nếu all = 100%, month ~ 70%, week ~ 25%, today ~ 5%)
+  // Hệ số ước lượng view sản phẩm theo timeframe
   const multiplier = 
     timeframe === 'today' ? 0.08 :
     timeframe === 'week' ? 0.28 :

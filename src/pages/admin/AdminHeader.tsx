@@ -1,6 +1,5 @@
 import React, { memo } from 'react'
 import { LogOut, Sliders, Images, Mail } from 'lucide-react'
-import { isDemoMode } from '../../lib/demoData'
 import type { AdminTab } from './types'
 
 interface AdminHeaderProps {
@@ -37,11 +36,6 @@ export const AdminHeader: React.FC<AdminHeaderProps> = memo(({
             <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-xs">
               Quản trị viên
             </span>
-            {isDemoMode && (
-              <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-medium px-2 py-0.5 rounded-xs hidden sm:inline">
-                Chế độ Seed Demo
-              </span>
-            )}
           </div>
           
           <div className="flex items-center gap-4">

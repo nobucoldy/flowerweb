@@ -5,7 +5,7 @@ import { CartDrawer } from '../components/CartDrawer'
 import { ChatBubbles } from '../components/ChatBubbles'
 import { ImageLightbox } from '../components/ImageLightbox'
 import { supabase } from '../lib/supabaseClient'
-import { isDemoMode, getLocalShowcases, type ShopShowcase } from '../lib/demoData'
+import type { ShopShowcase } from './admin/types'
 import { ZoomIn, Images } from 'lucide-react'
 
 export const Showcase: React.FC = () => {
@@ -38,22 +38,16 @@ export const Showcase: React.FC = () => {
   const fetchShowcaseData = async () => {
     setLoading(true)
     try {
-      if (isDemoMode) {
-        await new Promise(r => setTimeout(r, 150))
-        const data = getLocalShowcases()
-        setShowcases(data)
-      } else {
-        const { data, error } = await supabase
-          .from('shop_showcase')
-          .select('*')
-          .order('is_pinned', { ascending: false })
-          .order('created_at', { ascending: false })
-        if (error) throw error
-        if (data) setShowcases(data as ShopShowcase[])
-      }
+      const { data, error } = await supabase
+        .from('shop_showcase')
+        .select('*')
+        .order('is_pinned', { ascending: false })
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      if (data) setShowcases(data as ShopShowcase[])
     } catch (err) {
-      console.error('Lỗi lấy danh sách ảnh thực tế:', err)
-      setShowcases(getLocalShowcases())
+      console.error('Lỗi lấy danh sách ảnh thực tế từ Supabase:', err)
+      setShowcases([])
     } finally {
       setLoading(false)
     }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Plus, Edit, Trash2, Upload, X, Loader2, Save, Images, Pin, PinOff } from 'lucide-react'
 import { supabase, supabaseAdmin, uploadStorageImage } from '../../../lib/supabaseClient'
-import { isDemoMode, getLocalShowcases, saveLocalShowcase, togglePinShowcase, deleteLocalShowcase, type ShopShowcase } from '../../../lib/demoData'
+import type { ShopShowcase } from '../types'
 import { compressImage, validateImageFile } from '../../../lib/imageUtils'
 
 interface ShowcaseTabProps {
@@ -46,27 +46,21 @@ export const ShowcaseTab: React.FC<ShowcaseTabProps> = ({ onShowcaseCountChange 
   const fetchShowcases = async () => {
     setLoadingShowcases(true)
     try {
-      if (isDemoMode) {
-        const local = getLocalShowcases()
-        setShowcases(local)
-        onShowcaseCountChange?.(local.length)
-      } else {
-        const { data, error } = await supabase
-          .from('shop_showcase')
-          .select('*')
-          .order('is_pinned', { ascending: false })
-          .order('created_at', { ascending: false })
-        if (error) throw error
-        if (data) {
-          const list = data as ShopShowcase[]
-          setShowcases(list)
-          onShowcaseCountChange?.(list.length)
-        }
+      const { data, error } = await supabase
+        .from('shop_showcase')
+        .select('*')
+        .order('is_pinned', { ascending: false })
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      if (data) {
+        const list = data as ShopShowcase[]
+        setShowcases(list)
+        onShowcaseCountChange?.(list.length)
       }
-    } catch {
-      const local = getLocalShowcases()
-      setShowcases(local)
-      onShowcaseCountChange?.(local.length)
+    } catch (err) {
+      console.warn('Lỗi lấy danh sách ảnh thực tế từ Supabase:', err)
+      setShowcases([])
+      onShowcaseCountChange?.(0)
     } finally {
       setLoadingShowcases(false)
     }
@@ -129,7 +123,7 @@ export const ShowcaseTab: React.FC<ShowcaseTabProps> = ({ onShowcaseCountChange 
     try {
       let finalImageUrl = scImagePreview
 
-      if (scSelectedFile && !isDemoMode) {
+      if (scSelectedFile) {
         const upUrl = await uploadStorageImage(scSelectedFile, 'showcase')
         if (upUrl) {
           finalImageUrl = upUrl
@@ -149,42 +143,34 @@ export const ShowcaseTab: React.FC<ShowcaseTabProps> = ({ onShowcaseCountChange 
 
       let savedItem: ShopShowcase
 
-      if (!isDemoMode) {
-        if (editingShowcase) {
-          // Dùng upsert kèm id để nếu showcase chưa có trong DB sẽ tự động được INSERT vào DB!
-          const { data, error } = await supabaseAdmin
-            .from('shop_showcase')
-            .upsert({ ...showcasePayload, id: editingShowcase.id }, { onConflict: 'id' })
-            .select()
+      if (editingShowcase) {
+        const { data, error } = await supabaseAdmin
+          .from('shop_showcase')
+          .upsert({ ...showcasePayload, id: editingShowcase.id }, { onConflict: 'id' })
+          .select()
 
-          if (error) {
-            console.error('Lỗi Supabase khi cập nhật ảnh thực tế:', error)
-            throw new Error(error.message)
-          }
-
-          savedItem = (data && data[0]) ? (data[0] as ShopShowcase) : { ...editingShowcase, ...showcasePayload }
-        } else {
-          const { data, error } = await supabaseAdmin
-            .from('shop_showcase')
-            .insert([showcasePayload])
-            .select()
-
-          if (error) {
-            console.error('Lỗi Supabase khi đăng ảnh thực tế:', error)
-            throw new Error(error.message)
-          }
-
-          if (data && data[0]) {
-            savedItem = data[0] as ShopShowcase
-          } else {
-            throw new Error('Không nhận được dữ liệu phản hồi từ Database.')
-          }
+        if (error) {
+          console.error('Lỗi Supabase khi cập nhật ảnh thực tế:', error)
+          throw new Error(error.message)
         }
+
+        savedItem = (data && data[0]) ? (data[0] as ShopShowcase) : { ...editingShowcase, ...showcasePayload }
       } else {
-        savedItem = saveLocalShowcase({
-          ...showcasePayload,
-          id: editingShowcase?.id
-        })
+        const { data, error } = await supabaseAdmin
+          .from('shop_showcase')
+          .insert([showcasePayload])
+          .select()
+
+        if (error) {
+          console.error('Lỗi Supabase khi đăng ảnh thực tế:', error)
+          throw new Error(error.message)
+        }
+
+        if (data && data[0]) {
+          savedItem = data[0] as ShopShowcase
+        } else {
+          throw new Error('Không nhận được dữ liệu phản hồi từ Database.')
+        }
       }
 
       // Optimistic update
@@ -218,27 +204,14 @@ export const ShowcaseTab: React.FC<ShowcaseTabProps> = ({ onShowcaseCountChange 
     })
 
     try {
-      if (!isDemoMode) {
-        const { error, data } = await supabaseAdmin
-          .from('shop_showcase')
-          .update({ is_pinned: !currentPinStatus })
-          .eq('id', id)
-          .select('id')
+      const { error } = await supabaseAdmin
+        .from('shop_showcase')
+        .update({ is_pinned: !currentPinStatus })
+        .eq('id', id)
 
-        if (error) {
-          console.error('Lỗi ghim showcase:', error)
-          alert(`Không thể lưu trạng thái ghim: ${error.message}`)
-        } else if (!data || data.length === 0) {
-          const target = showcases.find(s => s.id === id)
-          if (target) {
-            await supabaseAdmin.from('shop_showcase').upsert({
-              ...target,
-              is_pinned: !currentPinStatus
-            }, { onConflict: 'id' })
-          }
-        }
-      } else {
-        togglePinShowcase(id)
+      if (error) {
+        console.error('Lỗi ghim showcase:', error)
+        alert(`Không thể lưu trạng thái ghim: ${error.message}`)
       }
     } catch (err: any) {
       console.warn('Lỗi ghim showcase:', err)
@@ -259,16 +232,13 @@ export const ShowcaseTab: React.FC<ShowcaseTabProps> = ({ onShowcaseCountChange 
     })
 
     try {
-      if (!isDemoMode) {
-        const { error } = await supabaseAdmin.from('shop_showcase').delete().eq('id', id)
-        if (error) {
-          console.error('Lỗi khi xóa showcase:', error)
-          alert(`Không thể xóa khỏi Database: ${error.message}`)
-        }
+      const { error } = await supabaseAdmin.from('shop_showcase').delete().eq('id', id)
+      if (error) {
+        console.error('Lỗi khi xóa showcase:', error)
+        alert(`Không thể xóa khỏi Database: ${error.message}`)
       } else {
-        deleteLocalShowcase(id)
+        alert('Đã xóa ảnh hoa thực tế thành công!')
       }
-      alert('Đã xóa ảnh hoa thực tế thành công!')
     } catch (err) {
       console.error('Lỗi xóa showcase:', err)
     }

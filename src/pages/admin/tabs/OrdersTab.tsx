@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import { supabase } from '../../../lib/supabaseClient'
-import { isDemoMode, getLocalOrders } from '../../../lib/demoData'
 import { isWithinTimeframe } from '../../../lib/analytics'
 import type { DraftOrder, TimeFilter } from '../types'
 
@@ -26,27 +25,20 @@ export const OrdersTab: React.FC<OrdersTabProps> = ({
   const fetchOrders = async () => {
     setLoadingOrders(true)
     try {
-      if (isDemoMode) {
-        await new Promise(r => setTimeout(r, 100))
-        const local = getLocalOrders()
-        setOrders(local)
-        onOrdersLoaded?.(local)
-      } else {
-        const { data, error } = await supabase
-          .from('orders')
-          .select('*')
-          .order('created_at', { ascending: false })
-        if (error) throw error
-        if (data) {
-          const list = data as DraftOrder[]
-          setOrders(list)
-          onOrdersLoaded?.(list)
-        }
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      if (data) {
+        const list = data as DraftOrder[]
+        setOrders(list)
+        onOrdersLoaded?.(list)
       }
-    } catch {
-      const local = getLocalOrders()
-      setOrders(local)
-      onOrdersLoaded?.(local)
+    } catch (err) {
+      console.warn('Lỗi lấy danh sách đơn hàng từ Supabase:', err)
+      setOrders([])
+      onOrdersLoaded?.([])
     } finally {
       setLoadingOrders(false)
     }

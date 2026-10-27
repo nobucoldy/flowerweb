@@ -4,7 +4,6 @@ import { Footer } from '../components/Footer'
 import { CartDrawer } from '../components/CartDrawer'
 import { ChatBubbles } from '../components/ChatBubbles'
 import { supabase } from '../lib/supabaseClient'
-import { isDemoMode, saveLocalFeedback } from '../lib/demoData'
 import { navigateTo } from '../lib/navigation'
 import { Send, CheckCircle2, ShieldCheck, Heart, Sparkles, Star } from 'lucide-react'
 
@@ -53,28 +52,17 @@ export const Feedback: React.FC = () => {
 
 
     try {
-      if (isDemoMode) {
-        // Lưu vào LocalStorage ở chế độ Demo
-        await new Promise(resolve => setTimeout(resolve, 350))
-        saveLocalFeedback({
-          content: content.trim(),
-          sender_tag: finalTag,
-          rating
-        })
-      } else {
-        // Lưu vào Supabase Database
-        const { error } = await supabase
-          .from('anonymous_feedback')
-          .insert([
-            {
-              content: content.trim(),
-              sender_tag: finalTag,
-              rating,
-              is_read: false
-            }
-          ])
-        if (error) throw error
-      }
+      const { error } = await supabase
+        .from('anonymous_feedback')
+        .insert([
+          {
+            content: content.trim(),
+            sender_tag: finalTag,
+            rating,
+            is_read: false
+          }
+        ])
+      if (error) throw error
 
       setIsSuccess(true)
       setLastSubmitTime(Date.now())

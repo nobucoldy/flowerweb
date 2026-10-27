@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
-import { Plus, Edit, Trash2, Eye, EyeOff, Upload, X, Loader2, Save, Search, RotateCcw, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Edit, Trash2, Eye, EyeOff, Upload, X, Loader2, Save, Search, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { supabase, supabaseAdmin, uploadStorageImage } from '../../../lib/supabaseClient'
 import { withDbRetry } from '../../../lib/supabaseHelper'
-import { isDemoMode, getLocalProducts, saveLocalProducts, saveLocalProduct, toggleProductStatusLocal, deleteLocalProduct, resetToSeedData } from '../../../lib/demoData'
 import { compressImage, validateImageFile } from '../../../lib/imageUtils'
 import { parsePriceInput } from '../../../lib/priceUtils'
 import type { AdminProduct } from '../types'
@@ -46,45 +45,22 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({ onProductsLoaded }) =>
   const fetchProducts = async () => {
     setLoadingProducts(true)
     try {
-      if (isDemoMode) {
-        await new Promise(r => setTimeout(r, 100))
-        const local = getLocalProducts() as AdminProduct[]
-        setProducts(local)
-        onProductsLoaded?.(local)
-      } else {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .order('created_at', { ascending: false })
-        if (error) throw error
-        if (data && data.length > 0) {
-          const prods = data as AdminProduct[]
-          setProducts(prods)
-          saveLocalProducts(prods)
-          onProductsLoaded?.(prods)
-        } else {
-          const local = getLocalProducts() as AdminProduct[]
-          setProducts(local)
-          onProductsLoaded?.(local)
-        }
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      if (data) {
+        const prods = data as AdminProduct[]
+        setProducts(prods)
+        onProductsLoaded?.(prods)
       }
     } catch (err) {
-      console.warn('Lỗi khi tải sản phẩm từ Supabase, fallback sang dữ liệu bộ nhớ máy:', err)
-      const local = getLocalProducts() as AdminProduct[]
-      setProducts(local)
-      onProductsLoaded?.(local)
+      console.warn('Lỗi khi tải sản phẩm từ Supabase:', err)
+      setProducts([])
+      onProductsLoaded?.([])
     } finally {
       setLoadingProducts(false)
-    }
-  }
-
-  // Khôi phục Seed Data mặc định
-  const handleResetSeed = () => {
-    if (window.confirm('Khôi phục toàn bộ danh mục sản phẩm về dữ liệu mẫu ban đầu?')) {
-      const resetProds = resetToSeedData() as AdminProduct[]
-      setProducts(resetProds)
-      onProductsLoaded?.(resetProds)
-      alert('Đã khôi phục sản phẩm mẫu thành công!')
     }
   }
 
@@ -139,15 +115,6 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({ onProductsLoaded }) =>
 
   // Upload ảnh lên Storage
   const uploadImage = async (file: File): Promise<string> => {
-    if (isDemoMode) {
-      try {
-        const compressed = await compressImage(file, 1000, 1000, 0.8)
-        return compressed || URL.createObjectURL(file)
-      } catch {
-        return URL.createObjectURL(file)
-      }
-    }
-
     setUploadProgress(true)
     try {
       const storageUrl = await uploadStorageImage(file, 'products')
@@ -202,46 +169,38 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({ onProductsLoaded }) =>
 
       let savedProduct: AdminProduct
 
-      if (!isDemoMode) {
-        if (editingProduct) {
-          // Dùng upsert kèm id để nếu sản phẩm chưa có trong DB sẽ tự động được INSERT vào DB!
-          const { data, error } = await withDbRetry<AdminProduct[]>(() =>
-            supabaseAdmin
-              .from('products')
-              .upsert({ ...productPayload, id: editingProduct.id }, { onConflict: 'id' })
-              .select()
-          )
+      if (editingProduct) {
+        const { data, error } = await withDbRetry<AdminProduct[]>(() =>
+          supabaseAdmin
+            .from('products')
+            .upsert({ ...productPayload, id: editingProduct.id }, { onConflict: 'id' })
+            .select()
+        )
 
-          if (error) {
-            console.error('Lỗi Supabase khi cập nhật sản phẩm:', error)
-            throw new Error(`Không thể lưu vào Database: ${error.message || 'Lỗi kết nối'}`)
-          }
-
-          savedProduct = (data && data[0]) ? data[0] : { ...editingProduct, ...productPayload }
-        } else {
-          const { data, error } = await withDbRetry<AdminProduct[]>(() =>
-            supabaseAdmin
-              .from('products')
-              .insert(productPayload)
-              .select()
-          )
-
-          if (error) {
-            console.error('Lỗi Supabase khi thêm mới sản phẩm:', error)
-            throw new Error(`Không thể lưu vào Database: ${error.message || 'Lỗi kết nối'}`)
-          }
-
-          if (data && data[0]) {
-            savedProduct = data[0]
-          } else {
-            throw new Error('Không nhận được dữ liệu phản hồi từ Database.')
-          }
+        if (error) {
+          console.error('Lỗi Supabase khi cập nhật sản phẩm:', error)
+          throw new Error(`Không thể lưu vào Database: ${error.message || 'Lỗi kết nối'}`)
         }
+
+        savedProduct = (data && data[0]) ? data[0] : { ...editingProduct, ...productPayload }
       } else {
-        savedProduct = saveLocalProduct({
-          ...productPayload,
-          id: editingProduct?.id
-        }) as AdminProduct
+        const { data, error } = await withDbRetry<AdminProduct[]>(() =>
+          supabaseAdmin
+            .from('products')
+            .insert(productPayload)
+            .select()
+        )
+
+        if (error) {
+          console.error('Lỗi Supabase khi thêm mới sản phẩm:', error)
+          throw new Error(`Không thể lưu vào Database: ${error.message || 'Lỗi kết nối'}`)
+        }
+
+        if (data && data[0]) {
+          savedProduct = data[0]
+        } else {
+          throw new Error('Không nhận được dữ liệu phản hồi từ Database.')
+        }
       }
 
       // Optimistic update state: cập nhật trực tiếp mà không kéo lại toàn bộ DB
@@ -252,7 +211,6 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({ onProductsLoaded }) =>
         } else {
           next = [savedProduct, ...prev]
         }
-        saveLocalProducts(next as any)
         onProductsLoaded?.(next)
         return next
       })
@@ -274,31 +232,19 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({ onProductsLoaded }) =>
     // Cập nhật UI ngay lập tức
     setProducts(prev => {
       const next = prev.map(p => p.id === product.id ? { ...p, status: newStatus } : p)
-      saveLocalProducts(next as any)
       onProductsLoaded?.(next)
       return next
     })
 
     try {
-      if (!isDemoMode) {
-        const { error, data } = await supabaseAdmin
-          .from('products')
-          .update({ status: newStatus })
-          .eq('id', product.id)
-          .select('id')
+      const { error } = await supabaseAdmin
+        .from('products')
+        .update({ status: newStatus })
+        .eq('id', product.id)
 
-        if (error) {
-          console.error('Lỗi Supabase khi cập nhật trạng thái:', error)
-          alert(`Không thể lưu trạng thái vào Database: ${error.message}`)
-        } else if (!data || data.length === 0) {
-          // Trường hợp ID chưa có trên Database (ví dụ từ seed data), tự động upsert bản ghi vào DB
-          await supabaseAdmin.from('products').upsert({
-            ...product,
-            status: newStatus
-          }, { onConflict: 'id' })
-        }
-      } else {
-        toggleProductStatusLocal(product.id, newStatus)
+      if (error) {
+        console.error('Lỗi Supabase khi cập nhật trạng thái:', error)
+        alert(`Không thể lưu trạng thái vào Database: ${error.message}`)
       }
     } catch (err: any) {
       console.warn('Lỗi cập nhật trạng thái:', err)
@@ -315,20 +261,15 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({ onProductsLoaded }) =>
     // Xóa ngay lập tức trên UI
     setProducts(prev => {
       const next = prev.filter(p => p.id !== id)
-      saveLocalProducts(next as any)
       onProductsLoaded?.(next)
       return next
     })
 
     try {
-      if (!isDemoMode) {
-        const { error } = await supabaseAdmin.from('products').delete().eq('id', id)
-        if (error) {
-          console.error('Lỗi khi xóa khỏi Database:', error)
-          alert(`Không thể xóa khỏi Database: ${error.message}`)
-        }
-      } else {
-        deleteLocalProduct(id)
+      const { error } = await supabaseAdmin.from('products').delete().eq('id', id)
+      if (error) {
+        console.error('Lỗi khi xóa khỏi Database:', error)
+        alert(`Không thể xóa khỏi Database: ${error.message}`)
       }
     } catch (err) {
       console.error('Lỗi khi xóa sản phẩm:', err)
@@ -411,17 +352,6 @@ export const ProductsTab: React.FC<ProductsTabProps> = ({ onProductsLoaded }) =>
 
         {/* Các nút hành động */}
         <div className="flex items-center gap-2">
-          {isDemoMode && (
-            <button
-              onClick={handleResetSeed}
-              className="flex items-center gap-1.5 px-3 py-2.5 border border-stone-300 hover:bg-stone-100 text-stone-700 rounded-sm text-xs font-semibold tracking-wider transition-colors cursor-pointer"
-              title="Khôi phục lại toàn bộ sản phẩm mẫu mặc định"
-            >
-              <RotateCcw size={13} />
-              Reset Seed Data
-            </button>
-          )}
-
           <button
             onClick={handleOpenAddModal}
             className="flex items-center gap-1.5 px-4 py-2.5 bg-stone-950 hover:bg-stone-850 text-stone-50 rounded-sm text-xs font-bold tracking-wider uppercase transition-colors duration-200 cursor-pointer w-fit"

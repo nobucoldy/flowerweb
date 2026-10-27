@@ -6,7 +6,6 @@ import { ChatBubbles } from '../components/ChatBubbles'
 import { ProductCard } from '../components/ProductCard'
 import { ImageLightbox } from '../components/ImageLightbox'
 import { supabase } from '../lib/supabaseClient'
-import { isDemoMode, getLocalProducts, saveLocalProducts } from '../lib/demoData'
 import { recordPageView, recordProductView } from '../lib/analytics'
 import type { Product } from '../store/useCartStore'
 import { useSettingsStore } from '../store/useSettingsStore'
@@ -30,28 +29,17 @@ export const Home: React.FC = () => {
   const fetchProducts = async () => {
     setLoading(true)
     try {
-      if (isDemoMode) {
-        await new Promise(r => setTimeout(r, 200))
-        const allProds = getLocalProducts()
-        setProducts(allProds.filter(p => (p.status || 'active') === 'active'))
-      } else {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .order('created_at', { ascending: false })
-        if (error) throw error
-        if (data && data.length > 0) {
-          saveLocalProducts(data as Product[])
-          setProducts((data as Product[]).filter(p => (p.status || 'active') === 'active'))
-        } else {
-          const allProds = getLocalProducts()
-          setProducts(allProds.filter(p => (p.status || 'active') === 'active'))
-        }
+      const { data, error } = await supabase
+        .from('products')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      if (data) {
+        setProducts((data as Product[]).filter(p => (p.status || 'active') === 'active'))
       }
     } catch (e) {
-      console.warn('Lỗi khi lấy danh sách sản phẩm từ Supabase, fallback sang dữ liệu máy:', e)
-      const allProds = getLocalProducts()
-      setProducts(allProds.filter(p => (p.status || 'active') === 'active'))
+      console.error('Lỗi khi lấy danh sách sản phẩm từ Supabase:', e)
+      setProducts([])
     } finally {
       setLoading(false)
     }

@@ -3,7 +3,6 @@ import { X, Minus, Plus, Trash2, Copy, ExternalLink, Check } from 'lucide-react'
 import { useCartStore } from '../store/useCartStore'
 import { useSettingsStore } from '../store/useSettingsStore'
 import { supabase } from '../lib/supabaseClient'
-import { isDemoMode, saveLocalOrder } from '../lib/demoData'
 
 export const CartDrawer: React.FC = () => {
   const { items, isOpen, setIsOpen, updateQuantity, removeFromCart, getTotalPrice } = useCartStore()
@@ -76,19 +75,10 @@ export const CartDrawer: React.FC = () => {
           quantity: item.quantity
         }))
 
-        if (isDemoMode) {
-          saveLocalOrder({
-            id: Math.random().toString(36).substring(2, 10).toUpperCase(),
-            items: orderData,
-            total_price: getTotalPrice(),
-            created_at: new Date().toISOString()
-          })
-        } else {
-          await supabase.from('orders').insert({
-            items: orderData,
-            total_price: getTotalPrice(),
-          })
-        }
+        await supabase.from('orders').insert({
+          items: orderData,
+          total_price: getTotalPrice(),
+        })
       } catch (error) {
         console.error('Không thể lưu đơn nháp', error)
       }
